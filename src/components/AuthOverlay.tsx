@@ -57,6 +57,7 @@ export default function AuthOverlay() {
     const isPasswordValid = Object.values(passwordRules).every(Boolean);
 
     // Profile form state
+    const [profileStep, setProfileStep] = useState<1 | 2>(1);
     const [profileName, setProfileName] = useState('');
     const [profileRoll, setProfileRoll] = useState('');
     const [profileDept, setProfileDept] = useState('Computer');
@@ -67,29 +68,44 @@ export default function AuthOverlay() {
     const [showPasswordSetup, setShowPasswordSetup] = useState(false);
     const [profileLoading, setProfileLoading] = useState(false);
 
-    // Department list
+    const profilePasswordRules = validatePassword(profilePassword);
+    const isProfilePasswordValid = Object.values(profilePasswordRules).every(Boolean);
+
     const [departments, setDepartments] = useState<string[]>(['Computer', 'Civil', 'Electrical', 'Mechanical']);
+    const [sections, setSections] = useState<string[]>(['23-24']);
 
     // Verification state
     const [verifyLoading, setVerifyLoading] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(false);
 
-    // Fetch departments from Firestore
+    // Fetch departments and sections from Firestore
     useEffect(() => {
-        async function fetchDepts() {
+        async function fetchData() {
             try {
-                const q = query(collection(db, 'departments'), orderBy('name'));
-                const snap = await getDocs(q);
-                if (!snap.empty) {
-                    const names = snap.docs.map(d => d.data().name as string);
+                const qDept = query(collection(db, 'departments'), orderBy('name'));
+                const snapDept = await getDocs(qDept);
+                if (!snapDept.empty) {
+                    const names = snapDept.docs.map(d => d.data().name as string);
                     setDepartments(names);
                     setProfileDept(names[0]);
                 }
             } catch {
                 // Fallback departments already set
             }
+
+            try {
+                const qSec = query(collection(db, 'sections'), orderBy('name'));
+                const snapSec = await getDocs(qSec);
+                if (!snapSec.empty) {
+                    const secNames = snapSec.docs.map(d => d.data().name as string);
+                    setSections(secNames);
+                    setProfileSection(secNames[0]);
+                }
+            } catch {
+                // Fallback sections already set
+            }
         }
-        fetchDepts();
+        fetchData();
     }, []);
 
     // Pre-fill name from Google account
@@ -219,7 +235,6 @@ export default function AuthOverlay() {
     };
 
     const semesters = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'];
-    const sections = ['23-24'];
 
     return (
         <div className="fixed inset-0 z-[200] bg-[#f9fafb]/50 dark:bg-black/50 backdrop-blur-md flex items-center justify-center p-4 grid-bg">
@@ -453,109 +468,166 @@ export default function AuthOverlay() {
                 {authStep === 'profile' && (
                     <div>
                         <h2 className="text-xl font-bold mb-6 border-b-2 border-black dark:border-white pb-2">Identification</h2>
-                        <form onSubmit={onProfileSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-xs uppercase font-bold mb-1">Full Name</label>
-                                <input
-                                    type="text"
-                                    value={profileName}
-                                    onChange={e => setProfileName(e.target.value)}
-                                    required
-                                    className="w-full bg-transparent border-b-2 border-gray-300 focus:border-black dark:focus:border-white outline-none py-2 rounded-none"
-                                />
-                            </div>
-
-                            {showPasswordSetup && (
+                        {profileStep === 1 ? (
+                            <form onSubmit={(e) => {
+                                e.preventDefault();
+                                if (!profileName.trim()) {
+                                    showAlert('Input Error', 'Please enter your Full Name', 'warning');
+                                    return;
+                                }
+                                if (showPasswordSetup && !isProfilePasswordValid) {
+                                    showAlert('Password Error', 'Password does not meet all requirements.', 'error');
+                                    return;
+                                }
+                                setProfileStep(2);
+                            }} className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
                                 <div>
-                                    <label className="block text-xs uppercase font-bold mb-1">Set Account Password</label>
+                                    <label className="block text-xs uppercase font-bold mb-1">Full Name</label>
                                     <input
-                                        type="password"
-                                        value={profilePassword}
-                                        onChange={e => setProfilePassword(e.target.value)}
-                                        minLength={6}
-                                        placeholder="Create a password for the app"
-                                        className="w-full bg-transparent border-b-2 border-gray-300 focus:border-black dark:focus:border-white outline-none py-2 rounded-none font-mono"
-                                    />
-                                    <p className="text-[10px] opacity-50 mt-1">
-                                        Set a password to log into the <b>NPC Mobile App</b> with this email.
-                                    </p>
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs uppercase font-bold mb-1">Department</label>
-                                    <select
-                                        value={profileDept}
-                                        onChange={e => setProfileDept(e.target.value)}
-                                        className="w-full bg-transparent border-2 border-black dark:border-zinc-700 p-2 rounded-none outline-none dark:bg-black"
-                                    >
-                                        {departments.map(d => (
-                                            <option key={d} value={d}>{d}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs uppercase font-bold mb-1">Board Roll</label>
-                                    <input
-                                        type="number"
-                                        value={profileRoll}
-                                        onChange={e => setProfileRoll(e.target.value)}
+                                        type="text"
+                                        value={profileName}
+                                        onChange={e => setProfileName(e.target.value)}
                                         required
                                         className="w-full bg-transparent border-b-2 border-gray-300 focus:border-black dark:focus:border-white outline-none py-2 rounded-none"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-xs uppercase font-bold mb-1">Semester</label>
-                                    <select
-                                        value={profileSem}
-                                        onChange={e => setProfileSem(e.target.value)}
-                                        className="w-full bg-transparent border-2 border-black dark:border-zinc-700 p-2 rounded-none outline-none dark:bg-black"
-                                    >
-                                        {semesters.map(s => (
-                                            <option key={s} value={s}>{s}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs uppercase font-bold mb-1">Section / Batch</label>
-                                    <select
-                                        value={profileSection}
-                                        onChange={e => setProfileSection(e.target.value)}
-                                        className="w-full bg-transparent border-2 border-black dark:border-zinc-700 p-2 rounded-none outline-none dark:bg-black"
-                                    >
-                                        {sections.map(s => (
-                                            <option key={s} value={s}>{s}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs uppercase font-bold mb-1">Bio (Optional)</label>
-                                    <input
-                                        type="text"
-                                        value={profileBio}
-                                        onChange={e => setProfileBio(e.target.value)}
-                                        placeholder="Short bio..."
-                                        className="w-full bg-transparent border-b-2 border-gray-300 focus:border-black dark:focus:border-white outline-none py-2 rounded-none"
-                                    />
-                                </div>
-                            </div>
 
-                            <button
-                                type="submit"
-                                disabled={profileLoading}
-                                className="w-full py-3 bg-black text-white dark:bg-white dark:text-black font-bold mt-4 uppercase disabled:opacity-50"
-                            >
-                                {profileLoading ? 'Verifying...' : 'Confirm Identity'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={onCancelRegistration}
-                                className="w-full py-2 border-2 border-dashed border-red-500 text-red-500 font-bold mt-2 uppercase text-xs hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
-                            >
-                                Cancel Setup
-                            </button>
-                        </form>
+                                {showPasswordSetup && (
+                                    <div>
+                                        <label className="block text-xs uppercase font-bold mb-1">Set Account Password</label>
+                                        <input
+                                            type="password"
+                                            value={profilePassword}
+                                            onChange={e => setProfilePassword(e.target.value)}
+                                            required
+                                            placeholder="Create a strong password"
+                                            className="w-full bg-transparent border-b-2 border-gray-300 focus:border-black dark:focus:border-white outline-none py-2 rounded-none font-mono"
+                                        />
+                                        
+                                        {profilePassword.length > 0 && (
+                                            <div className="grid grid-cols-2 gap-2 text-[10px] uppercase font-bold bg-gray-50 dark:bg-zinc-900 border-2 border-black dark:border-zinc-700 p-3 mt-3">
+                                                <div className={profilePasswordRules.length ? "text-green-600 dark:text-green-400" : "text-gray-400"}>
+                                                    {profilePasswordRules.length ? '✓' : '○'} 8+ Chars
+                                                </div>
+                                                <div className={profilePasswordRules.uppercase ? "text-green-600 dark:text-green-400" : "text-gray-400"}>
+                                                    {profilePasswordRules.uppercase ? '✓' : '○'} Uppercase
+                                                </div>
+                                                <div className={profilePasswordRules.lowercase ? "text-green-600 dark:text-green-400" : "text-gray-400"}>
+                                                    {profilePasswordRules.lowercase ? '✓' : '○'} Lowercase
+                                                </div>
+                                                <div className={profilePasswordRules.number ? "text-green-600 dark:text-green-400" : "text-gray-400"}>
+                                                    {profilePasswordRules.number ? '✓' : '○'} Number
+                                                </div>
+                                                <div className={`col-span-2 ${profilePasswordRules.special ? "text-green-600 dark:text-green-400" : "text-gray-400"}`}>
+                                                    {profilePasswordRules.special ? '✓' : '○'} Special Char (!@#$%)
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    className="w-full py-3 bg-black text-white dark:bg-white dark:text-black font-bold mt-4 uppercase transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] active:translate-y-1 active:shadow-none"
+                                >
+                                    Next Step <ArrowRight className="inline w-4 h-4 ml-2" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={onCancelRegistration}
+                                    className="w-full py-2 border-2 border-dashed border-red-500 text-red-500 font-bold mt-2 uppercase text-xs hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                                >
+                                    Cancel Setup
+                                </button>
+                            </form>
+                        ) : (
+                            <form onSubmit={onProfileSubmit} className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs uppercase font-bold mb-1">Department</label>
+                                        <select
+                                            value={profileDept}
+                                            onChange={e => setProfileDept(e.target.value)}
+                                            className="w-full bg-transparent border-2 border-black dark:border-zinc-700 p-2 rounded-none outline-none dark:bg-black"
+                                        >
+                                            {departments.map(d => (
+                                                <option key={d} value={d}>{d}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs uppercase font-bold mb-1">Board Roll</label>
+                                        <input
+                                            type="number"
+                                            value={profileRoll}
+                                            onChange={e => setProfileRoll(e.target.value)}
+                                            required
+                                            className="w-full bg-transparent border-b-2 border-gray-300 focus:border-black dark:focus:border-white outline-none py-2 rounded-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs uppercase font-bold mb-1">Semester</label>
+                                        <select
+                                            value={profileSem}
+                                            onChange={e => setProfileSem(e.target.value)}
+                                            className="w-full bg-transparent border-2 border-black dark:border-zinc-700 p-2 rounded-none outline-none dark:bg-black"
+                                        >
+                                            {semesters.map(s => (
+                                                <option key={s} value={s}>{s}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs uppercase font-bold mb-1">Batch</label>
+                                        <select
+                                            value={profileSection}
+                                            onChange={e => setProfileSection(e.target.value)}
+                                            className="w-full bg-transparent border-2 border-black dark:border-zinc-700 p-2 rounded-none outline-none dark:bg-black"
+                                        >
+                                            {sections.map(s => (
+                                                <option key={s} value={s}>{s}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="block text-xs uppercase font-bold mb-1">Bio (Optional)</label>
+                                        <input
+                                            type="text"
+                                            value={profileBio}
+                                            onChange={e => setProfileBio(e.target.value)}
+                                            placeholder="Short bio..."
+                                            className="w-full bg-transparent border-b-2 border-gray-300 focus:border-black dark:focus:border-white outline-none py-2 rounded-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-2 mt-4">
+                                    <button
+                                        type="submit"
+                                        disabled={profileLoading}
+                                        className="w-full py-3 bg-black text-white dark:bg-white dark:text-black font-bold uppercase transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] active:translate-y-1 active:shadow-none disabled:opacity-50"
+                                    >
+                                        {profileLoading ? 'Verifying...' : 'Confirm Identity'}
+                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setProfileStep(1)}
+                                            className="w-1/3 py-2 border-2 border-black dark:border-zinc-700 font-bold uppercase text-xs hover:bg-gray-100 dark:hover:bg-zinc-900 transition-colors"
+                                        >
+                                            Back
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={onCancelRegistration}
+                                            className="flex-1 py-2 border-2 border-dashed border-red-500 text-red-500 font-bold uppercase text-xs hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                                        >
+                                            Cancel Setup
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        )}
                     </div>
                 )}
             </div>

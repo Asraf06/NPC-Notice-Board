@@ -1,6 +1,6 @@
 {
   "name": "NPC Notice Board",
-  "short_name": "NoticeBoard",
+  "short_name": "NPC Notice Board",
   "description": "Premium Digital Notice Board for NPC Students",
   "start_url": "/login",
   "display": "standalone",

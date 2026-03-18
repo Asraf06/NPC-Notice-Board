@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { useUI } from '@/context/UIContext';
+import { apiUrl } from '@/lib/apiBase';
 
 interface CreateNoticeModalProps {
     isOpen: boolean;
@@ -43,9 +44,14 @@ export default function CreateNoticeModal({ isOpen, onClose }: CreateNoticeModal
         // Load categories
         getDocs(query(collection(db, 'notice_categories'), orderBy('name'))).then(snap => {
             const cats: { name: string; value: string }[] = [];
+            const seen = new Set<string>();
             snap.forEach(d => {
                 const c = d.data();
-                cats.push({ name: c.name, value: c.value || c.name });
+                const val = c.value || c.name;
+                if (!seen.has(val)) {
+                    seen.add(val);
+                    cats.push({ name: c.name, value: val });
+                }
             });
             if (cats.length === 0) cats.push({ name: 'General', value: 'general' });
             setCategories(cats);
@@ -118,7 +124,7 @@ export default function CreateNoticeModal({ isOpen, onClose }: CreateNoticeModal
             });
 
             // Fire-and-forget: send FCM push notifications
-            fetch('/api/notifications/notice', {
+            fetch(apiUrl('/api/notifications/notice'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

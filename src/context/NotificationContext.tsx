@@ -4,13 +4,19 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { useAuth } from './AuthContext';
 import { useUI } from './UIContext';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, arrayUnion, arrayRemove, collection, query, orderBy, onSnapshot, limit, Timestamp, addDoc, writeBatch, getDocs } from 'firebase/firestore';
+import { apiUrl } from '@/lib/apiBase';
+import { 
+    doc, updateDoc, arrayUnion, arrayRemove, collection, query, 
+    orderBy, onSnapshot, limit, Timestamp, addDoc, writeBatch, 
+    getDocs, deleteDoc, getDoc 
+} from 'firebase/firestore';
 import { requestNotificationPermission, onForegroundMessage } from '@/lib/fcm';
 import { useRouter } from 'next/navigation';
 
 export interface NotificationItem {
     id: string;
-    noticeId: string;
+    noticeId?: string; // Optional for friend requests
+    type?: 'notice' | 'friend_request';
     title: string;
     body: string;
     author: string;
@@ -26,6 +32,8 @@ interface NotificationContextType {
     requestPermission: () => Promise<void>;
     markAsViewed: (noticeId: string) => Promise<void>;
     markAllAsViewed: () => Promise<void>;
+    deleteNotification: (id: string) => Promise<void>;
+    smartCleanup: () => Promise<number>;
     isNotifPanelOpen: boolean;
     setNotifPanelOpen: (open: boolean) => void;
 }
@@ -66,13 +74,46 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         if (token) {
             setPermissionStatus('granted');
 
-            // Store token in Firestore (add to array, supports multiple devices)
+            // Check if a DIFFERENT user previously used this token on this device
+            // This prevents cross-user push notifications when switching accounts
             try {
+                const prevOwnerUid = localStorage.getItem('fcm_token_owner');
+                
+                if (prevOwnerUid && prevOwnerUid !== user.uid) {
+                    // Remove the token from the previous user's fcmTokens array
+                    console.log(`[Notifications] Transferring FCM token from ${prevOwnerUid} to ${user.uid}`);
+                    try {
+                        await updateDoc(doc(db, 'students', prevOwnerUid), {
+                            fcmTokens: arrayRemove(token),
+                        });
+                    } catch (removeErr) {
+                        // Previous user doc might not exist anymore, that's fine
+                        console.warn('[Notifications] Could not remove token from previous user:', removeErr);
+                    }
+                }
+
+                // Store token for current user
                 await updateDoc(doc(db, 'students', user.uid), {
                     fcmTokens: arrayUnion(token),
                 });
+
+                // Remember who owns this token on this device
+                localStorage.setItem('fcm_token_owner', user.uid);
+
+                // Server-side cleanup: ensure this token isn't on any OTHER user
+                // (handles edge cases where localStorage was cleared or multiple switches happened)
+                fetch(apiUrl('/api/notifications/cleanup-token'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, ownerUid: user.uid }),
+                }).catch(err => console.warn('[Notifications] Token cleanup failed:', err));
+                
                 setTokenStored(true);
-                showToast('Notifications enabled! 🔔');
+                if (!prevOwnerUid || prevOwnerUid === user.uid) {
+                    showToast('Notifications enabled! 🔔');
+                } else {
+                    showToast('Notifications switched to your account! 🔔');
+                }
             } catch (err) {
                 console.error('[Notifications] Failed to store FCM token:', err);
             }
@@ -111,6 +152,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 showToast(`📢 ${title}: ${body.substring(0, 60)}...`);
             } else if (data.type === 'chat') {
                 showToast(`💬 ${title}: ${body.substring(0, 60)}`);
+            } else if (data.type === 'friend_request') {
+                showToast(`🤝 ${title}: ${body.substring(0, 60)}`);
             }
         });
 
@@ -123,7 +166,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
         const handler = (event: MessageEvent) => {
             if (event.data?.type === 'NOTIFICATION_CLICK' && event.data?.url) {
-                router.push(event.data.url);
+                const urlStr = event.data.url;
+                router.push(urlStr);
+
+                // Dispatch custom events if the user is already on the page
+                try {
+                    const parsedUrl = new URL(urlStr, window.location.origin);
+                    if (parsedUrl.searchParams.has('noticeId')) {
+                        window.dispatchEvent(new CustomEvent('open-notice', { 
+                            detail: { noticeId: parsedUrl.searchParams.get('noticeId') } 
+                        }));
+                    } else if (parsedUrl.searchParams.has('chatWith')) {
+                        window.dispatchEvent(new CustomEvent('open-chat', { 
+                            detail: { chatWith: parsedUrl.searchParams.get('chatWith') } 
+                        }));
+                    }
+                } catch (err) {
+                    console.warn('[Notifications] Failed to parse deep link URL', err);
+                }
             }
         };
 
@@ -157,12 +217,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     // Unread count
     const unreadCount = notifications.filter(n => !n.viewed).length;
 
-    // Mark a specific notice notification as viewed
-    const markAsViewed = useCallback(async (noticeId: string) => {
+    // Mark a specific notification as viewed (by noticeId or specific notif ID)
+    const markAsViewed = useCallback(async (noticeIdOrId: string) => {
         if (!user) return;
 
-        // Find all notification items for this notice and mark them viewed
-        const matching = notifications.filter(n => n.noticeId === noticeId && !n.viewed);
+        // Try to find by noticeId first (traditional behavior)
+        let matching = notifications.filter(n => n.noticeId === noticeIdOrId && !n.viewed);
+        
+        // If not found, try to find by the specific notification document ID
+        if (matching.length === 0) {
+            matching = notifications.filter(n => n.id === noticeIdOrId && !n.viewed);
+        }
+
         if (matching.length === 0) return;
 
         const batch = writeBatch(db);
@@ -200,6 +266,51 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         }
     }, [user, notifications]);
 
+    // Delete a single notification
+    const deleteNotification = useCallback(async (id: string) => {
+        if (!user) return;
+        try {
+            await deleteDoc(doc(db, 'students', user.uid, 'notifications', id));
+        } catch (err) {
+            console.error('[Notifications] Failed to delete:', err);
+        }
+    }, [user]);
+
+    // Smart cleanup (remove notifications whose notice is deleted)
+    const smartCleanup = useCallback(async () => {
+        if (!user || notifications.length === 0) return 0;
+
+        const withNoticeId = notifications.filter(n => n.noticeId);
+        if (withNoticeId.length === 0) return 0;
+
+        const noticeIds = Array.from(new Set(withNoticeId.map(n => n.noticeId))) as string[];
+        
+        // This checks if the source notice still exists
+        const statuses = await Promise.all(
+            noticeIds.map(async (id) => {
+                const snap = await getDoc(doc(db, 'notices', id));
+                return { id, exists: snap.exists() };
+            })
+        );
+
+        const deletedNoticeIds = statuses.filter(s => !s.exists).map(s => s.id);
+        if (deletedNoticeIds.length === 0) return 0;
+
+        const batch = writeBatch(db);
+        let count = 0;
+        notifications.forEach(n => {
+            if (n.noticeId && deletedNoticeIds.includes(n.noticeId)) {
+                batch.delete(doc(db, 'students', user.uid, 'notifications', n.id));
+                count++;
+            }
+        });
+
+        if (count > 0) {
+            await batch.commit();
+        }
+        return count;
+    }, [user, notifications]);
+
     return (
         <NotificationContext.Provider value={{
             notifications,
@@ -208,6 +319,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             requestPermission,
             markAsViewed,
             markAllAsViewed,
+            deleteNotification,
+            smartCleanup,
             isNotifPanelOpen,
             setNotifPanelOpen,
         }}>

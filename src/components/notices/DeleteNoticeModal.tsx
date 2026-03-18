@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { doc, deleteDoc, getDoc } from 'firebase/firestore';
+import { 
+    doc, deleteDoc, getDoc, query, collectionGroup, 
+    where, getDocs, writeBatch 
+} from 'firebase/firestore';
 import { useUI } from '@/context/UIContext';
 import { deleteUploadedFiles } from '@/lib/uploadService';
 
@@ -20,7 +23,7 @@ export default function DeleteNoticeModal({ noticeId, onClose, onDeleted }: Dele
     const confirmDelete = async () => {
         setDeleting(true);
         try {
-            // 1️⃣ Fetch notice data to get file info
+            // 1. Fetch notice data to get file info for deletion
             const noticeRef = doc(db, 'notices', noticeId);
             const noticeSnap = await getDoc(noticeRef);
 
@@ -28,7 +31,7 @@ export default function DeleteNoticeModal({ noticeId, onClose, onDeleted }: Dele
                 const data = noticeSnap.data();
                 const attachments = data.attachments || [];
 
-                // 2️⃣ Delete files from cloud storage
+                // 2. Delete files from storage
                 if (attachments.length > 0) {
                     const filesToDelete = attachments
                         .filter((att: { service?: string; fileId?: string }) => att.service && att.fileId)
@@ -38,19 +41,24 @@ export default function DeleteNoticeModal({ noticeId, onClose, onDeleted }: Dele
                         }));
 
                     if (filesToDelete.length > 0) {
-                        await deleteUploadedFiles(filesToDelete);
+                        try {
+                            await deleteUploadedFiles(filesToDelete);
+                        } catch (stErr) {
+                            console.warn('[Storage Cleanup] Failed to delete some files:', stErr);
+                        }
                     }
                 }
             }
 
-            // 3️⃣ Delete the Firestore document
+            // 3. Delete the notice document
             await deleteDoc(noticeRef);
+            
             onDeleted(noticeId);
             onClose();
-            showAlert('Deleted', 'Notice and attached files have been removed.', 'success');
-        } catch (err) {
-            console.error(err);
-            showAlert('Error', 'Failed to delete notice.', 'error');
+            showAlert('Deleted', 'Notice and its attached files were removed.', 'success');
+        } catch (err: any) {
+            console.error('[Delete Error]:', err);
+            showAlert('Error', err.message || 'Failed to delete notice.', 'error');
         } finally {
             setDeleting(false);
         }

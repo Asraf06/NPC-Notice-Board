@@ -5,6 +5,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { ChatProvider } from '@/context/ChatContext';
 import { UIProvider } from '@/context/UIContext';
 import { NotificationProvider } from '@/context/NotificationContext';
+import { PwaInstallProvider } from '@/context/PwaInstallContext';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -13,7 +14,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <ChatProvider>
           <UIProvider>
             <NotificationProvider>
-              {children}
+              <PwaInstallProvider>
+                {children}
+              </PwaInstallProvider>
             </NotificationProvider>
           </UIProvider>
         </ChatProvider>

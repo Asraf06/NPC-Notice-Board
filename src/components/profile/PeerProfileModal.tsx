@@ -183,7 +183,7 @@ export default function PeerProfileModal({ isOpen, onClose, uid }: PeerProfileMo
                         <div className="grid grid-cols-3 w-full gap-4 text-center my-4">
                             {userData.section && (
                                 <div className="bg-gray-50 dark:bg-zinc-900 p-2 border border-black dark:border-zinc-700">
-                                    <p className="text-[10px] uppercase font-bold text-gray-500">Section</p>
+                                    <p className="text-[10px] uppercase font-bold text-gray-500">Batch</p>
                                     <p className="font-mono font-bold text-black dark:text-white">{userData.section}</p>
                                 </div>
                             )}

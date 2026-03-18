@@ -1,6 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import {
     User,
     onAuthStateChanged,
@@ -14,6 +16,8 @@ import {
     linkWithCredential,
     updatePassword,
     reauthenticateWithPopup,
+    GoogleAuthProvider,
+    signInWithCredential,
 } from 'firebase/auth';
 import { doc, onSnapshot, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, onValue, onDisconnect, set, serverTimestamp as rtdbServerTimestamp, off } from 'firebase/database';
@@ -30,6 +34,7 @@ export interface UserProfile {
     email: string;
     uid: string;
     photoURL: string;
+    photoFileId?: string;
     isBlocked: boolean;
     allowLogout: boolean;
     forceLogout: boolean;
@@ -219,7 +224,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // --- AUTH METHODS ---
     const handleGoogleLogin = async () => {
         try {
-            await signInWithPopup(auth, googleProvider);
+            if (Capacitor.isNativePlatform()) {
+                const result = await FirebaseAuthentication.signInWithGoogle();
+                if (result.credential?.idToken) {
+                    const credential = GoogleAuthProvider.credential(result.credential.idToken, result.credential.accessToken);
+                    await signInWithCredential(auth, credential);
+                } else {
+                    throw new Error("Missing Google ID Token");
+                }
+            } else {
+                await signInWithPopup(auth, googleProvider);
+            }
         } catch (error) {
             throw error;
         }

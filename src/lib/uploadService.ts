@@ -1,5 +1,6 @@
 import { db, auth } from './firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { apiUrl } from './apiBase';
 
 /**
  * 🚀 CLIENT-SIDE UPLOAD SERVICE (Vercel Edition)
@@ -44,7 +45,7 @@ async function fetchUploadKeys() {
     return null;
 }
 
-async function uploadDirectly(file: File, onProgress?: (pct: number) => void): Promise<UploadResult | null> {
+async function uploadDirectly(file: File, onProgress?: (pct: number) => void, folderPath: string = '/uploads/client'): Promise<UploadResult | null> {
     const keys = await fetchUploadKeys();
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
@@ -119,7 +120,7 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void): P
         const currentUser = auth.currentUser;
         if (currentUser) {
             const idToken = await currentUser.getIdToken();
-            const authResponse = await fetch('/api/imagekit/auth', {
+            const authResponse = await fetch(apiUrl('/api/imagekit/auth'), {
                 headers: {
                     Authorization: `Bearer ${idToken}`
                 }
@@ -137,7 +138,7 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void): P
                     formData.append('token', authData.token);
                     formData.append('fileName', file.name);
                     formData.append('useUniqueFileName', 'true');
-                    formData.append('folder', '/uploads/client');
+                    formData.append('folder', folderPath);
 
                     result = await doXhrUpload('https://upload.imagekit.io/api/v1/files/upload', formData, 'imagekit');
                 }
@@ -181,26 +182,54 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void): P
     return result;
 }
 
-export async function secureUploadFile(file: File): Promise<UploadResult | null> {
-    return uploadDirectly(file);
+export async function secureUploadFile(file: File, folderPath?: string): Promise<UploadResult | null> {
+    return uploadDirectly(file, undefined, folderPath);
 }
 
-export async function secureUploadMaterial(file: File): Promise<UploadResult | null> {
-    return uploadDirectly(file);
+export async function secureUploadMaterial(file: File, folderPath?: string): Promise<UploadResult | null> {
+    return uploadDirectly(file, undefined, folderPath);
 }
 
 export function secureUploadWithProgress(
     file: File,
-    onProgress: (percent: number) => void
+    onProgress: (percent: number) => void,
+    folderPath?: string
 ): Promise<UploadResult | null> {
-    return uploadDirectly(file, onProgress);
+    return uploadDirectly(file, onProgress, folderPath);
 }
 
 export async function deleteUploadedFiles(
     files: { service: string; fileId: string | null }[]
 ): Promise<void> {
-    // Note: Cloudinary/ImageKit server-side deletion is ignored on static deployments 
-    // since we do not have an API endpoint with server secrets to issue delete commands.
-    console.debug('Client-side deletion bypassed for orphaned files:', files);
-    return Promise.resolve();
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+        console.log('No user logged in, cannot delete files.');
+        return;
+    }
+
+    try {
+        const idToken = await currentUser.getIdToken();
+        for (const file of files) {
+            if (file.service === 'imagekit' && file.fileId) {
+                const res = await fetch(apiUrl('/api/imagekit/delete'), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${idToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ fileId: file.fileId })
+                });
+
+                if (!res.ok) {
+                    console.error('Failed to delete ImageKit file:', await res.text());
+                } else {
+                    console.log('Successfully deleted ImageKit file:', file.fileId);
+                }
+            } else {
+                console.debug('Deletion specifically for imagekit. Ignored for:', file);
+            }
+        }
+    } catch (err) {
+        console.error('Error during file deletion:', err);
+    }
 }

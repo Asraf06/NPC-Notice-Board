@@ -6,9 +6,10 @@ import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { Clipboard, MessageCircle, Moon, Sun, LogOut } from 'lucide-react';
+import { Clipboard, MessageCircle, Menu } from 'lucide-react';
 import ProfileModal from './profile/ProfileModal';
 import NotificationBell from './NotificationBell';
+import SidePanel from './SidePanel';
 
 const navItems = [
     { id: '/notices', label: 'Notices' },
@@ -17,10 +18,10 @@ const navItems = [
 ];
 
 export default function Header() {
-    const { userProfile, globalSettings, logout } = useAuth();
-    const { theme, toggleTheme } = useTheme();
+    const { userProfile } = useAuth();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [profileSourceRect, setProfileSourceRect] = useState<DOMRect | null>(null);
+    const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
 
     const openProfile = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -30,22 +31,23 @@ export default function Header() {
     const pathname = usePathname();
 
     const imgUrl = userProfile?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userProfile?.name || 'S')}`;
-    const showLogout = globalSettings.allowLogout || userProfile?.allowLogout;
 
     return (
         <>
             <header className="h-16 border-b-2 border-black dark:border-zinc-800 flex items-center justify-between px-4 lg:px-8 bg-white dark:bg-black shrink-0 z-20">
-                {/* Logo */}
-                <Link href="/notices" className="flex items-center gap-3">
-                    <div className="bg-black text-white dark:bg-white dark:text-black p-1">
-                        <Clipboard className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h1 className="font-bold uppercase tracking-tight leading-none text-[18px] sm:text-base">
-                            NPC<br />Notice Board
-                        </h1>
-                    </div>
-                </Link>
+                {/* Left: Logo */}
+                <div className="flex items-center">
+                    <Link href="/notices" className="flex items-center gap-3">
+                        <div className="bg-black text-white dark:bg-white dark:text-black p-1">
+                            <Clipboard className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h1 className="font-bold uppercase tracking-tight leading-none text-[18px] sm:text-base">
+                                NPC<br />Notice Board
+                            </h1>
+                        </div>
+                    </Link>
+                </div>
 
                 {/* Desktop Nav Tabs — with animated sliding indicator */}
                 <div className="hidden md:flex flex-1 justify-center gap-1 lg:gap-4 relative">
@@ -121,27 +123,14 @@ export default function Header() {
                         />
                     </button>
 
-                    {/* Theme Toggle */}
+                    {/* Hamburger Menu Button */}
                     <button
-                        onClick={toggleTheme}
+                        onClick={() => setIsSidePanelOpen(true)}
                         className="p-2 border border-black dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                        aria-label="Open menu"
                     >
-                        {theme === 'dark' ? (
-                            <Sun className="w-5 h-5" />
-                        ) : (
-                            <Moon className="w-5 h-5" />
-                        )}
+                        <Menu className="w-5 h-5" />
                     </button>
-
-                    {/* Logout */}
-                    {showLogout && (
-                        <button
-                            onClick={logout}
-                            className="p-2 bg-black text-white dark:bg-white dark:text-black hover:opacity-80"
-                        >
-                            <LogOut className="w-5 h-5" />
-                        </button>
-                    )}
                 </div>
             </header>
 
@@ -150,6 +139,12 @@ export default function Header() {
                 isOpen={isProfileOpen}
                 onClose={() => { setIsProfileOpen(false); }}
                 sourceRect={profileSourceRect}
+            />
+
+            {/* Side Panel */}
+            <SidePanel
+                isOpen={isSidePanelOpen}
+                onClose={() => setIsSidePanelOpen(false)}
             />
         </>
     );

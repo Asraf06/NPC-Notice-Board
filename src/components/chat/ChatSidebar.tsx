@@ -8,6 +8,7 @@ import {
     MessageCircle, Users, GraduationCap, Globe2, Search, Check, X,
     Shield, ShieldCheck, ClipboardList, ChevronRight, Bot, PlusCircle, Sparkles, MessageSquare
 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { FriendData, ChatMeta, ChatTab } from './ChatView';
 import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 
@@ -72,12 +73,32 @@ export default function ChatSidebar({
     globalGroupIcon,
 }: ChatSidebarProps) {
     const { userProfile } = useAuth();
-    const [friendSubTab, setFriendSubTab] = useState<'list' | 'requests'>('list');
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    
+    const [friendSubTab, setFriendSubTabInternal] = useState<'list' | 'requests'>('list');
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<{
         uid: string; name: string; dept: string; photoURL: string; role: string;
     }[]>([]);
     const [isSearching, setIsSearching] = useState(false);
+
+    // Sync sub-tab with URL
+    useEffect(() => {
+        const view = searchParams.get('view');
+        if (view === 'requests') {
+            setFriendSubTabInternal('requests');
+        } else if (view === 'list') {
+            setFriendSubTabInternal('list');
+        }
+    }, [searchParams]);
+
+    const setFriendSubTab = useCallback((sub: 'list' | 'requests') => {
+        setFriendSubTabInternal(sub);
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('view', sub);
+        router.replace(`/social/friends?${params.toString()}`);
+    }, [router, searchParams]);
 
     // Teachers state
     const [teachers, setTeachers] = useState<TeacherData[]>([]);

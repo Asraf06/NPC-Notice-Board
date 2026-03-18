@@ -5,12 +5,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useChat, ActivePeer } from '@/context/ChatContext';
 import { useUI } from '@/context/UIContext';
 import { db, rtdb } from '@/lib/firebase';
+import { apiUrl } from '@/lib/apiBase';
 import {
     collection, onSnapshot, doc, writeBatch, deleteDoc, getDoc, getDocs, query, where, serverTimestamp as fsServerTimestamp
 } from 'firebase/firestore';
 import {
     ref, onValue, push, update, serverTimestamp as rtdbServerTimestamp, off, runTransaction
 } from 'firebase/database';
+import { useRouter } from 'next/navigation';
 import ChatSidebar from './ChatSidebar';
 import ChatArea from './ChatArea';
 import { ArrowLeft, Settings } from 'lucide-react';
@@ -61,7 +63,8 @@ const ADMIN_UID = 'Q8lLnFIFuPeVcS9HU0y9p7iKKyo2';
 /* ═══════════════════════════════════════════
    MAIN CHAT VIEW
    ═══════════════════════════════════════════ */
-export default function ChatView() {
+export default function ChatView({ initialTab }: { initialTab?: string }) {
+    const router = useRouter();
     const { userProfile } = useAuth();
     const { openProfile } = useUI();
     const {
@@ -78,7 +81,19 @@ export default function ChatView() {
     const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
     const [receivedRequests, setReceivedRequests] = useState<FriendData[]>([]);
     const [chatMeta, setChatMeta] = useState<Record<string, ChatMeta>>({});
-    const [activeTab, setActiveTab] = useState<ChatTab>('recent');
+    const [activeTab, setActiveTabInternal] = useState<ChatTab>((initialTab as ChatTab) || 'recent');
+
+    // Sync activeTab with initialTab prop (from URL)
+    useEffect(() => {
+        if (initialTab && initialTab !== activeTab) {
+            setActiveTabInternal(initialTab as ChatTab);
+        }
+    }, [initialTab, activeTab]);
+
+    const setActiveTab = useCallback((tab: ChatTab) => {
+        setActiveTabInternal(tab);
+        router.push(`/social/${tab}`);
+    }, [router]);
 
     // ── Messages ──
     const [messages, setMessages] = useState<MessageData[]>([]);
@@ -393,7 +408,7 @@ export default function ChatView() {
                     runTransaction(peerUnreadRef, (current) => (current || 0) + 1);
 
                     // Fire-and-forget: send FCM push notification to peer
-                    fetch('/api/notifications/chat', {
+                    fetch(apiUrl('/api/notifications/chat'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -427,10 +442,36 @@ export default function ChatView() {
             status: 'received',
             name: userProfile.name,
             photo: userProfile.photoURL || `https://ui-avatars.com/api/?name=${userProfile.name}`,
-            dept: userProfile.dept,
+            dept: userProfile.dept || 'Student',
             timestamp: fsServerTimestamp(),
         });
+
+        // Add to their notification history
+        const theirNotifRef = doc(collection(db, 'students', peerId, 'notifications'));
+        batch.set(theirNotifRef, {
+            type: 'friend_request',
+            title: 'New Friend Request',
+            body: `${userProfile.name} wants to connect with you.`,
+            author: userProfile.name,
+            category: 'Social',
+            timestamp: fsServerTimestamp(),
+            viewed: false,
+        });
+
         await batch.commit();
+
+        // Send push notification
+        fetch(apiUrl('/api/notifications/friend-request'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                recipientUid: peerId,
+                senderUid: userProfile.uid,
+                senderName: userProfile.name,
+                senderPhoto: userProfile.photoURL || '',
+                senderDept: userProfile.dept || 'Student',
+            }),
+        }).catch(err => console.warn('[FriendNotif] API failed:', err));
     }, [userProfile]);
 
     const acceptRequest = useCallback(async (peerId: string, peerName: string, peerPhoto: string, peerDept: string) => {
@@ -483,17 +524,28 @@ export default function ChatView() {
     useEffect(() => {
         if (!userProfile?.uid) return;
 
+        const handleOpenChat = (e: Event) => {
+            const chatWith = (e as CustomEvent).detail?.chatWith;
+            if (chatWith) {
+                // Remove from URL so it doesn't re-trigger on refresh
+                const url = new URL(window.location.href);
+                url.searchParams.delete('chatWith');
+                window.history.replaceState({}, '', url.pathname + url.search);
+
+                startChat(chatWith);
+            }
+        };
+
+        window.addEventListener('open-chat', handleOpenChat);
+
+        // Check URL on initial load
         const params = new URLSearchParams(window.location.search);
-        const chatWith = params.get('chatWith');
-        if (!chatWith) return;
+        const urlChatWith = params.get('chatWith');
+        if (urlChatWith) {
+            handleOpenChat(new CustomEvent('open-chat', { detail: { chatWith: urlChatWith } }));
+        }
 
-        // Remove from URL so it doesn't re-trigger
-        const url = new URL(window.location.href);
-        url.searchParams.delete('chatWith');
-        window.history.replaceState({}, '', url.pathname + url.search);
-
-        // Open the chat with this user
-        startChat(chatWith);
+        return () => window.removeEventListener('open-chat', handleOpenChat);
     }, [userProfile?.uid, startChat]);
 
     useEffect(() => {

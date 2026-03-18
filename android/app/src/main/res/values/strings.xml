@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NPC Mobile</string>
+    <string name="title_activity_main">NPC Mobile</string>
+    <string name="package_name">com.npcnoticeboard.asraf</string>
+    <string name="custom_url_scheme">com.npcnoticeboard.asraf</string>
+</resources>

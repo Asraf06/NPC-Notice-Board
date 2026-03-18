@@ -1,7 +1,14 @@
 'use client';
 
-import ChatView from '@/components/chat/ChatView';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function SocialPage() {
-    return <ChatView />;
+    const router = useRouter();
+
+    useEffect(() => {
+        router.replace('/social/recent');
+    }, [router]);
+
+    return null;
 }

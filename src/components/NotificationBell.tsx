@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useEffect, useCallback } from 'react';
-import { Bell, BellOff, Check, CheckCheck, ExternalLink } from 'lucide-react';
+import { useRef, useEffect, useCallback, useState } from 'react';
+import { Bell, BellOff, Check, CheckCheck, ExternalLink, Trash2, Sparkles } from 'lucide-react';
 import { useNotifications } from '@/context/NotificationContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,9 +26,12 @@ export default function NotificationBell() {
         requestPermission,
         markAsViewed,
         markAllAsViewed,
+        deleteNotification,
+        smartCleanup,
         isNotifPanelOpen,
         setNotifPanelOpen,
     } = useNotifications();
+    const [isCleaning, setCleaning] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
     const panelRef = useRef<HTMLDivElement>(null);
@@ -54,9 +57,38 @@ export default function NotificationBell() {
         setNotifPanelOpen(!isNotifPanelOpen);
     }, [permissionStatus, requestPermission, isNotifPanelOpen, setNotifPanelOpen]);
 
-    const handleNotificationClick = useCallback((noticeId: string) => {
-        markAsViewed(noticeId);
+    const handleSmartClean = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (isCleaning) return;
+        setCleaning(true);
+        try {
+            const count = await smartCleanup();
+            if (count > 0) {
+                // Optionally show a small toast or just let the list update
+                console.log(`[SmartClean] Removed ${count} orphaned notifications`);
+            }
+        } finally {
+            setCleaning(false);
+        }
+    };
+
+    const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        await deleteNotification(id);
+    };
+
+    const handleNotificationClick = useCallback((n: any) => {
+        markAsViewed(n.noticeId || n.id);
         setNotifPanelOpen(false);
+
+        if (n.type === 'friend_request') {
+            router.push('/social/friends?view=requests');
+            return;
+        }
+
+        // Default type or 'notice'
+        const noticeId = n.noticeId;
+        if (!noticeId) return;
 
         if (pathname === '/notices') {
             // Already on home — dispatch a custom event so NoticesView
@@ -108,9 +140,24 @@ export default function NotificationBell() {
                     >
                         {/* Header */}
                         <div className="flex items-center justify-between px-4 py-3 border-b-2 border-black dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900 shrink-0">
-                            <h3 className="text-xs font-black uppercase tracking-widest">
-                                Notifications
-                            </h3>
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-xs font-black uppercase tracking-widest">
+                                    Notifications
+                                </h3>
+                                {notifications.length > 0 && (
+                                    <button
+                                        onClick={handleSmartClean}
+                                        disabled={isCleaning}
+                                        className={`flex items-center gap-1 text-[9px] font-bold uppercase transition-colors ${
+                                            isCleaning ? 'text-gray-400' : 'text-cyan-600 dark:text-cyan-400 hover:text-cyan-500'
+                                        }`}
+                                        title="Remove notifications whose notices were deleted"
+                                    >
+                                        <Sparkles className={`w-3 h-3 ${isCleaning ? 'animate-spin' : ''}`} />
+                                        {isCleaning ? 'Cleaning...' : 'Smart Clean'}
+                                    </button>
+                                )}
+                            </div>
                             {unreadCount > 0 && (
                                 <button
                                     onClick={markAllAsViewed}
@@ -132,10 +179,17 @@ export default function NotificationBell() {
                                 </div>
                             ) : (
                                 notifications.map((n) => (
-                                    <button
+                                    <div
                                         key={n.id}
-                                        onClick={() => handleNotificationClick(n.noticeId)}
-                                        className={`w-full text-left px-4 py-3 border-b border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-900 transition-colors flex gap-3 items-start group ${!n.viewed ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => handleNotificationClick(n)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                handleNotificationClick(n);
+                                            }
+                                        }}
+                                        className={`w-full text-left px-4 py-3 border-b border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-900 transition-colors flex gap-3 items-start group cursor-pointer ${!n.viewed ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}
                                     >
                                         {/* Viewed indicator */}
                                         <div className="shrink-0 mt-1">
@@ -169,9 +223,18 @@ export default function NotificationBell() {
                                             </p>
                                         </div>
 
-                                        {/* Open arrow */}
-                                        <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-40 transition-opacity shrink-0 mt-1" />
-                                    </button>
+                                        {/* Actions */}
+                                        <div className="flex flex-col gap-2 shrink-0 self-center">
+                                            <button
+                                                onClick={(e) => handleDelete(e, n.id)}
+                                                className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                                title="Delete notification"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                            <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-40 transition-opacity" />
+                                        </div>
+                                    </div>
                                 ))
                             )}
                         </div>

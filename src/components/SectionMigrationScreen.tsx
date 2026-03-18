@@ -47,7 +47,7 @@ export default function SectionMigrationScreen() {
                 {/* Section Select */}
                 <div className="text-left mb-6">
                     <label className="block text-xs uppercase font-bold mb-2 text-black dark:text-white">
-                        Your Section / Batch Year
+                        Your Batch
                     </label>
                     <select
                         value={section}

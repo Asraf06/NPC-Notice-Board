@@ -48,14 +48,18 @@ export async function POST(request: Request) {
         const normalizedSem = (targetSem || 'All').toLowerCase();
         const normalizedSection = (targetSection || 'all').toLowerCase();
 
-        console.log(`[NoticeNotif] Notice "${title}" for dept=${normalizedDept}, sem=${normalizedSem}, section=${normalizedSection}`);
+        console.log(`[NoticeNotif] Notice "${title}" targeting: dept="${normalizedDept}", sem="${normalizedSem}", section="${normalizedSection}"`);
 
         // Get all students
         const studentsSnap = await adminDb.collection('students').get();
+        console.log(`[NoticeNotif] Total students in DB: ${studentsSnap.size}`);
 
         const tokens: string[] = [];
-        const batch = adminDb.batch();
-        let notifCount = 0;
+        const matchedStudents: { uid: string; name: string; dept: string; sem: string; section: string }[] = [];
+        let skippedAuthor = 0;
+        let skippedDept = 0;
+        let skippedSem = 0;
+        let skippedSection = 0;
 
         studentsSnap.forEach((studentDoc) => {
             const student = studentDoc.data();
@@ -65,42 +69,75 @@ export async function POST(request: Request) {
             const studentSection = (student.section || '').toLowerCase();
 
             // Skip the author
-            if (student.uid === authorUid || studentUid === authorUid) return;
+            if (student.uid === authorUid || studentUid === authorUid) {
+                skippedAuthor++;
+                return;
+            }
 
             // Department match
-            if (normalizedDept !== 'all' && studentDept !== normalizedDept) return;
+            if (normalizedDept !== 'all' && studentDept !== normalizedDept) {
+                skippedDept++;
+                return;
+            }
 
             // Semester match
-            if (normalizedSem !== 'all' && studentSem !== normalizedSem) return;
+            if (normalizedSem !== 'all' && studentSem !== normalizedSem) {
+                skippedSem++;
+                return;
+            }
 
             // Section match
-            if (normalizedSection !== 'all' && studentSection !== normalizedSection) return;
+            if (normalizedSection !== 'all' && studentSection !== normalizedSection) {
+                skippedSection++;
+                return;
+            }
 
-            // Collect FCM tokens
+            // This student matches — collect FCM tokens
             if (student.fcmTokens && Array.isArray(student.fcmTokens)) {
                 tokens.push(...student.fcmTokens);
             }
 
-            // Create notification history entry
-            const notifRef = adminDb
-                .collection('students').doc(studentUid)
-                .collection('notifications').doc();
-
-            batch.set(notifRef, {
-                noticeId,
-                title,
-                body: (body || '').substring(0, 150),
-                author: author || 'Unknown',
-                category,
-                timestamp: new Date(),
-                viewed: false,
+            matchedStudents.push({
+                uid: studentUid,
+                name: student.name || 'Unknown',
+                dept: studentDept,
+                sem: studentSem,
+                section: studentSection,
             });
-            notifCount++;
         });
 
-        // Commit notification history
-        if (notifCount > 0) {
+        console.log(`[NoticeNotif] Filter results: matched=${matchedStudents.length}, skippedAuthor=${skippedAuthor}, skippedDept=${skippedDept}, skippedSem=${skippedSem}, skippedSection=${skippedSection}`);
+        console.log(`[NoticeNotif] Matched students:`, matchedStudents.map(s => `${s.name}(${s.dept}/${s.sem}/${s.section})`).join(', '));
+
+        // Create notification history entries (batch limit is 500, so chunk if needed)
+        let notifCount = 0;
+        const BATCH_LIMIT = 450; // Leave some headroom under 500
+
+        for (let i = 0; i < matchedStudents.length; i += BATCH_LIMIT) {
+            const chunk = matchedStudents.slice(i, i + BATCH_LIMIT);
+            const batch = adminDb.batch();
+
+            chunk.forEach(({ uid }) => {
+                const notifRef = adminDb
+                    .collection('students').doc(uid)
+                    .collection('notifications').doc();
+
+                batch.set(notifRef, {
+                    noticeId,
+                    title,
+                    body: (body || '').substring(0, 150),
+                    author: author || 'Unknown',
+                    category,
+                    timestamp: new Date(),
+                    viewed: false,
+                });
+                notifCount++;
+            });
+
             await batch.commit();
+        }
+
+        if (notifCount > 0) {
             console.log(`[NoticeNotif] Created ${notifCount} notification history entries`);
         }
 

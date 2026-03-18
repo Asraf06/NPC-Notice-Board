@@ -3,65 +3,55 @@
 import { useState, useEffect } from 'react';
 import { Download, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePwaInstall } from '@/context/PwaInstallContext';
+import { useNativeApp } from '@/hooks/useNativeApp';
 
 export default function InstallPrompt() {
-    const [prompt, setPrompt] = useState<any>(null);
+    const { isInstallable, isInstalled, triggerInstall } = usePwaInstall();
+    const isNativeApp = useNativeApp();
     const [isVisible, setIsVisible] = useState(false);
     const [dismissState, setDismissState] = useState(false);
 
     useEffect(() => {
-        const handler = (e: any) => {
-            e.preventDefault();
-            setPrompt(e);
+        if (!isInstallable || isInstalled || isNativeApp) return;
 
-            // Wait a few seconds after load to show the prompt
-            const timer = setTimeout(() => {
-                const isInstalled = window.matchMedia('(display-mode: standalone)').matches;
+        // Wait a few seconds after the prompt becomes available
+        const timer = setTimeout(() => {
+            // Check preferences
+            const neverShow = localStorage.getItem('pwa_never_show');
+            const showLater = localStorage.getItem('pwa_show_later');
+            const sessionDismiss = sessionStorage.getItem('pwa_session_dismiss');
 
-                // Check preferences
-                const neverShow = localStorage.getItem('pwa_never_show');
-                const showLater = localStorage.getItem('pwa_show_later');
-                const sessionDismiss = sessionStorage.getItem('pwa_session_dismiss');
+            let shouldShow = true;
+            if (neverShow === 'true') shouldShow = false;
+            if (sessionDismiss === 'true') shouldShow = false;
+            if (showLater) {
+                const laterTime = parseInt(showLater, 10);
+                if (Date.now() < laterTime) shouldShow = false;
+            }
 
-                let shouldShow = true;
-                if (neverShow === 'true') shouldShow = false;
-                if (sessionDismiss === 'true') shouldShow = false;
-                if (showLater) {
-                    const laterTime = parseInt(showLater, 10);
-                    if (Date.now() < laterTime) shouldShow = false;
-                }
+            if (shouldShow) {
+                setIsVisible(true);
+            }
+        }, 3000);
 
-                if (!isInstalled && shouldShow) {
-                    setIsVisible(true);
-                }
-            }, 3000);
-
-            return () => clearTimeout(timer);
-        };
-
-        window.addEventListener('beforeinstallprompt', handler);
-
-        return () => window.removeEventListener('beforeinstallprompt', handler);
-    }, []);
+        return () => clearTimeout(timer);
+    }, [isInstallable, isInstalled]);
 
     const handleInstall = async () => {
-        if (!prompt) return;
-        prompt.prompt();
-        const { outcome } = await prompt.userChoice;
+        const outcome = await triggerInstall();
         if (outcome === 'accepted') {
             setIsVisible(false);
         }
-        setPrompt(null);
     };
 
     const handleNotNow = () => {
         sessionStorage.setItem('pwa_session_dismiss', 'true');
         setIsVisible(false);
-        setTimeout(() => setDismissState(false), 500); // reset state after closing
+        setTimeout(() => setDismissState(false), 500);
     };
 
     const handleMaybeLater = () => {
-        // Show again in 3 days
         const time = Date.now() + 3 * 24 * 60 * 60 * 1000;
         localStorage.setItem('pwa_show_later', time.toString());
         setIsVisible(false);

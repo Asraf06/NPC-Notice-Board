@@ -29,11 +29,11 @@ messaging.onBackgroundMessage((payload) => {
     const badge = '/icons/icon-192.png';
 
     // Build click URL based on notification type
-    let clickUrl = '/';
+    let clickUrl = '/notices';
     if (data.type === 'notice' && data.noticeId) {
-        clickUrl = `/?noticeId=${data.noticeId}`;
+        clickUrl = `/notices?noticeId=${data.noticeId}`;
     } else if (data.type === 'chat' && data.chatWith) {
-        clickUrl = `/social?chatWith=${data.chatWith}`;
+        clickUrl = `/social/recent?chatWith=${data.chatWith}`;
     }
 
     // Determine unique tag so every notification is physical and distinct (no silent replacing)

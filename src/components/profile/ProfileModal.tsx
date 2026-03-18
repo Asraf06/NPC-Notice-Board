@@ -134,7 +134,7 @@ export default function ProfileModal({ isOpen, onClose, sourceRect }: ProfileMod
                             >
                                 {/* Read-Only Fields */}
                                 <div>
-                                    <label className="block text-xs uppercase font-bold mb-1 opacity-60 text-black dark:text-white">Roll (Locked)</label>
+                                    <label className="block text-xs uppercase font-bold mb-1 opacity-60 text-black dark:text-white">Roll</label>
                                     <input
                                         type="text"
                                         disabled
@@ -145,7 +145,7 @@ export default function ProfileModal({ isOpen, onClose, sourceRect }: ProfileMod
 
                                 <div className="grid grid-cols-3 gap-4">
                                     <div>
-                                        <label className="block text-xs uppercase font-bold mb-1 opacity-60 text-black dark:text-white">Section</label>
+                                        <label className="block text-xs uppercase font-bold mb-1 opacity-60 text-black dark:text-white">Batch</label>
                                         <input
                                             type="text"
                                             disabled
@@ -154,7 +154,7 @@ export default function ProfileModal({ isOpen, onClose, sourceRect }: ProfileMod
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs uppercase font-bold mb-1 opacity-60 text-black dark:text-white">Dept (Locked)</label>
+                                        <label className="block text-xs uppercase font-bold mb-1 opacity-60 text-black dark:text-white">Dept</label>
                                         <input
                                             type="text"
                                             disabled
@@ -163,7 +163,7 @@ export default function ProfileModal({ isOpen, onClose, sourceRect }: ProfileMod
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-xs uppercase font-bold mb-1 opacity-60 text-black dark:text-white">Sem (Locked)</label>
+                                        <label className="block text-xs uppercase font-bold mb-1 opacity-60 text-black dark:text-white">Sem</label>
                                         <input
                                             type="text"
                                             disabled
