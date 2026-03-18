@@ -34,7 +34,9 @@ jobs:
 
     - name: Build Next.js Static Export
       run: |
+        mv src/app/api src/app/_api
         CAPACITOR_BUILD=true npx next build
+        mv src/app/_api src/app/api
       env:
         NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
         NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}

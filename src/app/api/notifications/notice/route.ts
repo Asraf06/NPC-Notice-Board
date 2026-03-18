@@ -61,7 +61,7 @@ export async function POST(request: Request) {
         let skippedSem = 0;
         let skippedSection = 0;
 
-        studentsSnap.forEach((studentDoc) => {
+        studentsSnap.forEach((studentDoc: any) => {
             const student = studentDoc.data();
             const studentUid = studentDoc.id;
             const studentDept = (student.dept || '').toLowerCase();
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
                         console.log(`[NoticeNotif] Removing ${invalidTokens.length} invalid tokens`);
                         const allStudents = await adminDb.collection('students').get();
                         const cleanupBatch = adminDb.batch();
-                        allStudents.forEach((doc) => {
+                        allStudents.forEach((doc: any) => {
                             const d = doc.data();
                             if (d.fcmTokens && Array.isArray(d.fcmTokens)) {
                                 const cleaned = d.fcmTokens.filter((t: string) => !invalidTokens.includes(t));

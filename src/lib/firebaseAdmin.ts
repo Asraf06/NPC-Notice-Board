@@ -18,6 +18,11 @@ function getAdminApp() {
         return getApps()[0];
     }
 
+    if (!process.env.FIREBASE_ADMIN_PROJECT_ID || !process.env.FIREBASE_ADMIN_PRIVATE_KEY) {
+        console.warn('⚠️ FIREBASE_ADMIN keys missing (expected during CAPACITOR_BUILD static export). Firebase Admin skipped.');
+        return null;
+    }
+
     const serviceAccount: ServiceAccount = {
         projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
         clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
@@ -31,8 +36,11 @@ function getAdminApp() {
 }
 
 const adminApp = getAdminApp();
-export const adminDb = getFirestore(adminApp);
-export const adminAuth = getAuth(adminApp);
+
+// Use a Proxy to mock the DB and Auth objects if adminApp is null (during static builds without secrets).
+// This prevents the build from crashing during Next.js static analysis.
+export const adminDb = adminApp ? getFirestore(adminApp) : new Proxy({}, { get: () => { throw new Error('Firebase Admin DB not initialized'); } }) as any;
+export const adminAuth = adminApp ? getAuth(adminApp) : new Proxy({}, { get: () => { throw new Error('Firebase Admin Auth not initialized'); } }) as any;
 
 /**
  * Fetch upload API keys (ImgBB, Cloudinary) from Firestore using Admin SDK.

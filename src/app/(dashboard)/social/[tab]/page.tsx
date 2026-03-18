@@ -1,11 +1,14 @@
-'use client';
+import ClientPage from './ClientPage';
 
-import { useParams } from 'next/navigation';
-import ChatView from '@/components/chat/ChatView';
+// Statically generate these paths for Capacitor export
+export async function generateStaticParams() {
+    return [
+        { tab: 'chats' },
+        { tab: 'friends' },
+        { tab: 'requests' }
+    ];
+}
 
 export default function SocialTab() {
-    const params = useParams();
-    const tab = params.tab as string;
-    
-    return <ChatView initialTab={tab} />;
+    return <ClientPage />;
 }

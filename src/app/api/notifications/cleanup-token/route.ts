@@ -25,7 +25,7 @@ export async function POST(request: Request) {
         const batch = adminDb.batch();
         let removedCount = 0;
 
-        studentsSnap.forEach((studentDoc) => {
+        studentsSnap.forEach((studentDoc: any) => {
             const student = studentDoc.data();
             const studentUid = studentDoc.id;
 
