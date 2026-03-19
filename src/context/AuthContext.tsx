@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import {
     User,
     onAuthStateChanged,
@@ -225,9 +225,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const handleGoogleLogin = async () => {
         try {
             if (Capacitor.isNativePlatform()) {
-                const result = await FirebaseAuthentication.signInWithGoogle();
-                if (result.credential?.idToken) {
-                    const credential = GoogleAuthProvider.credential(result.credential.idToken, result.credential.accessToken);
+                try {
+                    await GoogleAuth.initialize();
+                } catch { /* plugin might already be initialized natively */ }
+                
+                const result = await GoogleAuth.signIn();
+                if (result.authentication && result.authentication.idToken) {
+                    const credential = GoogleAuthProvider.credential(
+                        result.authentication.idToken,
+                        result.authentication.accessToken
+                    );
                     await signInWithCredential(auth, credential);
                 } else {
                     throw new Error("Missing Google ID Token");

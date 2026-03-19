@@ -11,8 +11,10 @@ const config: CapacitorConfig = {
     appStartPath: '/login',
   },
   plugins: {
-    FirebaseAuthentication: {
-      providers: ['google.com'],
+    GoogleAuth: {
+      scopes: ['profile', 'email'],
+      serverClientId: '529840057304-obbs5438idptq2qqlmor0ormdq2lf21f.apps.googleusercontent.com',
+      forceCodeForRefreshToken: true,
     },
   },
 };
