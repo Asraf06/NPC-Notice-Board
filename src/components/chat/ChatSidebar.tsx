@@ -95,10 +95,13 @@ export default function ChatSidebar({
 
     const setFriendSubTab = useCallback((sub: 'list' | 'requests') => {
         setFriendSubTabInternal(sub);
-        const params = new URLSearchParams(searchParams.toString());
-        params.set('view', sub);
-        router.replace(`/social/friends?${params.toString()}`);
-    }, [router, searchParams]);
+        // Shallow URL update — no route navigation
+        try {
+            const params = new URLSearchParams(window.location.search);
+            params.set('view', sub);
+            window.history.replaceState(null, '', `/social/friends?${params.toString()}`);
+        } catch { /* ignore in SSR */ }
+    }, []);
 
     // Teachers state
     const [teachers, setTeachers] = useState<TeacherData[]>([]);

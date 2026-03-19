@@ -83,17 +83,25 @@ export default function ChatView({ initialTab }: { initialTab?: string }) {
     const [chatMeta, setChatMeta] = useState<Record<string, ChatMeta>>({});
     const [activeTab, setActiveTabInternal] = useState<ChatTab>((initialTab as ChatTab) || 'recent');
 
-    // Sync activeTab with initialTab prop (from URL)
+    // Sync activeTab with initialTab prop (from URL) — only on mount
+    const initialTabApplied = useRef(false);
     useEffect(() => {
-        if (initialTab && initialTab !== activeTab) {
-            setActiveTabInternal(initialTab as ChatTab);
+        if (initialTab && !initialTabApplied.current) {
+            initialTabApplied.current = true;
+            if (initialTab !== activeTab) {
+                setActiveTabInternal(initialTab as ChatTab);
+            }
         }
-    }, [initialTab, activeTab]);
+    }, [initialTab]);
 
+    // Switch tabs via React state only — update URL shallowly (no navigation)
     const setActiveTab = useCallback((tab: ChatTab) => {
         setActiveTabInternal(tab);
-        router.push(`/social/${tab}`);
-    }, [router]);
+        // Update URL for bookmarkability without triggering a route change
+        try {
+            window.history.replaceState(null, '', `/social/${tab}`);
+        } catch { /* ignore in SSR */ }
+    }, []);
 
     // ── Messages ──
     const [messages, setMessages] = useState<MessageData[]>([]);

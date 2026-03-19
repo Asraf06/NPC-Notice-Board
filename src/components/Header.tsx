@@ -84,7 +84,7 @@ export default function Header() {
                 <div className="flex items-center gap-3">
                     {/* Chat Toggle (Desktop) */}
                     <Link
-                        href="/social"
+                        href="/social/recent"
                         className="hidden md:flex relative p-2 border border-black dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
                     >
                         <MessageCircle className="w-5 h-5" />

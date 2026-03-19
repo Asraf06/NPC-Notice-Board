@@ -9,7 +9,7 @@ const items = [
     { id: '/notices', label: 'Notices', icon: LayoutGrid },
     { id: '/routine', label: 'Routine', icon: Calendar },
     { id: '/materials', label: 'Material', icon: FolderOpen },
-    { id: '/social', label: 'Social', icon: MessageSquare },
+    { id: '/social/recent', label: 'Social', icon: MessageSquare },
 ];
 
 export default function BottomNav() {
@@ -19,7 +19,11 @@ export default function BottomNav() {
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-black border-t-2 border-black dark:border-zinc-800 flex items-center justify-around z-[100] px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
             {items.map(item => {
                 const Icon = item.icon;
-                const isActive = item.id === '/' ? pathname === '/' : pathname.startsWith(item.id);
+                const isActive = item.id === '/'
+                    ? pathname === '/'
+                    : item.id.startsWith('/social/')
+                        ? pathname.startsWith('/social')
+                        : pathname.startsWith(item.id);
 
                 return (
                     <Link

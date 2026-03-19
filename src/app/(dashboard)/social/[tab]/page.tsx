@@ -3,9 +3,12 @@ import ClientPage from './ClientPage';
 // Statically generate these paths for Capacitor export
 export async function generateStaticParams() {
     return [
-        { tab: 'chats' },
+        { tab: 'recent' },
         { tab: 'friends' },
-        { tab: 'requests' }
+        { tab: 'ai' },
+        { tab: 'teacher' },
+        { tab: 'groups' },
+        { tab: 'search' },
     ];
 }
 
