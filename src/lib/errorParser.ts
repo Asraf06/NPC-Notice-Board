@@ -65,6 +65,6 @@ export function parseFirebaseError(error: any, defaultMessage: string = 'An unex
         return `[DEV] ${friendlyMessage}`;
     }
 
-    // In production (Vercel), we ONLY show the friendly message to the normal user
-    return friendlyMessage;
+    // Show BOTH the friendly message and the raw error briefly so the user can show us exactly what it says
+    return `${friendlyMessage}\n\n[RAW DEBUG ALERTS BELOW]\n${errorCode ? `Code: ${errorCode}` : 'No Error Code'}\nMsg: ${originalMessage}`;
 }
