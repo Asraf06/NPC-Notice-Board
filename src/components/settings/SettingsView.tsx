@@ -4,6 +4,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { Sun, Moon, Bell, Info, Download, Check, Smartphone } from 'lucide-react';
 import { useNotifications } from '@/context/NotificationContext';
 import { usePwaInstall } from '@/context/PwaInstallContext';
+import { useNativeApp } from '@/hooks/useNativeApp';
 
 import { useState } from 'react';
 
@@ -11,6 +12,7 @@ export default function SettingsView() {
     const { theme, toggleTheme } = useTheme();
     const { permissionStatus, requestPermission } = useNotifications();
     const { isInstallable, isInstalled, triggerInstall } = usePwaInstall();
+    const isNativeApp = useNativeApp();
     const [showDeniedGuide, setShowDeniedGuide] = useState(false);
 
     const appVersion = process.env.NEXT_PUBLIC_APP_VERSION || '2.0.0';
@@ -187,7 +189,8 @@ export default function SettingsView() {
                     </div>
                 </div>
 
-                {/* Install App Section */}
+                {/* Install App Section — hidden on native apps */}
+                {!isNativeApp && (
                 <div className="border-2 border-black dark:border-zinc-800 bg-white dark:bg-black mb-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.05)]">
                     <div className="px-6 py-4 border-b-2 border-black dark:border-zinc-800">
                         <h3 className="font-bold uppercase text-xs tracking-wider flex items-center gap-2">
@@ -238,6 +241,7 @@ export default function SettingsView() {
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* About Section */}
                 <div className="border-2 border-black dark:border-zinc-800 bg-white dark:bg-black shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.05)]">

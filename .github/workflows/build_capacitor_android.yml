@@ -55,9 +55,17 @@ jobs:
       run: |
         mkdir -p ~/.android
         echo "${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}" | base64 -d > ~/.android/debug.keystore
-        echo "===== DEBUG KEYSTORE SHA-1 ====="
-        keytool -list -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey | grep SHA1
-        echo "================================"
+        echo "========================================"
+        echo "  ADD THESE TO FIREBASE PROJECT SETTINGS"
+        echo "========================================"
+        echo ""
+        echo "SHA-1:"
+        keytool -list -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey | grep "SHA1:" | awk '{print $2}'
+        echo ""
+        echo "SHA-256:"
+        keytool -list -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey | grep "SHA256:" | awk '{print $2}'
+        echo ""
+        echo "========================================"
 
     - name: Build with Gradle
       run: |

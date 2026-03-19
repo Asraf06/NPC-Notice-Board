@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import LocomotiveScroll from "locomotive-scroll";
 import "locomotive-scroll/dist/locomotive-scroll.css";
 import dynamic from "next/dynamic";
+import { Capacitor } from '@capacitor/core';
 
 // Dynamic imports for sections to speed up TTI (Time to Interactive)
 const HeroSection = dynamic(() => import("@/components/landing/HeroSection"));
@@ -31,7 +32,8 @@ export default function LandingPage() {
     setIsMounted(true);
     // Detect if running as a standalone PWA
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
-      || (window.navigator as any).standalone;
+      || (window.navigator as any).standalone
+      || Capacitor.isNativePlatform();
     if (isStandalone) setIsPWA(true);
   }, []);
 

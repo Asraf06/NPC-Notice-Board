@@ -12,6 +12,7 @@
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.1.0",
     "@capacitor/android": "^8.2.0",
+    "@capacitor/app": "^8.0.1",
     "@capacitor/cli": "^8.2.0",
     "@capacitor/core": "^8.2.0",
     "@ducanh2912/next-pwa": "^10.2.9",

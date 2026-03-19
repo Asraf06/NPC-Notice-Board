@@ -6,6 +6,7 @@ import { ChatProvider } from '@/context/ChatContext';
 import { UIProvider } from '@/context/UIContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import { PwaInstallProvider } from '@/context/PwaInstallContext';
+import CapacitorBackButton from '@/components/CapacitorBackButton';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -15,6 +16,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <UIProvider>
             <NotificationProvider>
               <PwaInstallProvider>
+                <CapacitorBackButton />
                 {children}
               </PwaInstallProvider>
             </NotificationProvider>

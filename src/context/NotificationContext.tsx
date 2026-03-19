@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useAuth } from './AuthContext';
 import { useUI } from './UIContext';
 import { db } from '@/lib/firebase';
@@ -59,6 +60,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     // Check initial permission status
     useEffect(() => {
         if (typeof window === 'undefined') return;
+        // On native Capacitor apps, notifications are handled natively
+        // The web Notification API is not relevant
+        if (Capacitor.isNativePlatform()) {
+            setPermissionStatus('granted');
+            return;
+        }
         if (!('Notification' in window)) {
             setPermissionStatus('unsupported');
             return;
@@ -125,6 +132,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     // Auto-request permission after login (if not already granted)
     useEffect(() => {
         if (!user || !userProfile || tokenStored) return;
+        // On native Capacitor apps, skip web notification permission flow
+        if (Capacitor.isNativePlatform()) {
+            setPermissionStatus('granted');
+            setTokenStored(true);
+            return;
+        }
         if (typeof window === 'undefined' || !('Notification' in window)) return;
 
         // Only auto-request if permission hasn't been decided yet
