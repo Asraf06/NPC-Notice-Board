@@ -10,11 +10,13 @@ import {
     Settings,
     LogOut,
     Clipboard,
+    Download,
 } from 'lucide-react';
 
 const sidebarItems = [
     { id: '/notices', label: 'Notices', icon: LayoutGrid },
     { id: '/profile', label: 'Profile', icon: User },
+    { id: '/install', label: 'Install App', icon: Download },
     { id: '/settings', label: 'Settings', icon: Settings },
 ];
 

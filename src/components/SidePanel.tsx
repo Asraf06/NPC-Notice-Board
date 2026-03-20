@@ -19,6 +19,7 @@ import {
     FolderOpen,
     MessageSquare,
     Clipboard,
+    Download,
 } from 'lucide-react';
 
 interface SidePanelProps {
@@ -29,6 +30,7 @@ interface SidePanelProps {
 const menuItems = [
     { id: '/notices', label: 'Notices', icon: LayoutGrid },
     { id: '/profile', label: 'Profile', icon: User },
+    { id: '/install', label: 'Install App', icon: Download },
     { id: '/settings', label: 'Settings', icon: Settings },
 ];
 
