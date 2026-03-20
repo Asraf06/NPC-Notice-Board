@@ -45,6 +45,16 @@ async function fetchUploadKeys() {
     return null;
 }
 
+function showGlobalAlert(title: string, message: string) {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('global-alert', {
+            detail: { title, message, type: 'error' }
+        }));
+    } else {
+        console.error(`[ALERT: ${title}]`, message);
+    }
+}
+
 async function uploadDirectly(file: File, onProgress?: (pct: number) => void, folderPath: string = '/uploads/client'): Promise<UploadResult | null> {
     const keys = await fetchUploadKeys();
     const isImage = file.type.startsWith('image/');
@@ -92,23 +102,23 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void, fo
                             });
                         } else {
                             console.error(`${serviceName} upload response invalid:`, data);
-                            alert(`[DEBUG] ${serviceName} Response Invalid: ${JSON.stringify(data).substring(0, 100)}`);
+                            showGlobalAlert('Upload Response Error', `${serviceName} returned invalid format. Data: ${JSON.stringify(data).substring(0, 100)}`);
                             resolve(null);
                         }
                     } catch (err: any) {
                         console.error(`${serviceName} parse error:`, err);
-                        alert(`[DEBUG] ${serviceName} JSON Parse Error: ${err?.message || 'Unknown'}`);
+                        showGlobalAlert('JSON Parse Error', `${serviceName} parse failed: ${err?.message || 'Unknown'}`);
                         resolve(null);
                     }
                 } else {
                     console.error(`${serviceName} HTTP status ${xhr.status}`, xhr.responseText);
-                    alert(`[DEBUG] ${serviceName} Failed! Status: ${xhr.status}. Response: ${xhr.responseText.substring(0, 100)}`);
+                    showGlobalAlert('HTTP Error', `${serviceName} failed! Status: ${xhr.status}. Response: ${xhr.responseText.substring(0, 100)}`);
                     resolve(null);
                 }
             };
             xhr.onerror = (err) => {
                 console.error(`${serviceName} XHR network error`);
-                alert(`[DEBUG] ${serviceName} XHR Network Error. Check CORS or invalid File object inside FormData.`);
+                showGlobalAlert('Network Error', `${serviceName} XHR failed. Check CORS or invalid File object inside FormData.`);
                 resolve(null);
             };
             xhr.open('POST', url);
@@ -130,7 +140,7 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void, fo
                     Authorization: `Bearer ${idToken}`
                 }
             }).catch(err => {
-                alert(`[DEBUG] Fetch to ${authUrl} failed: ${err.message}`);
+                showGlobalAlert('Auth Fetch Error', `Fetch to ${authUrl} failed: ${err.message}`);
                 return null;
             });
 
@@ -151,21 +161,21 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void, fo
 
                         result = await doXhrUpload('https://upload.imagekit.io/api/v1/files/upload', formData, 'imagekit');
                     } else {
-                        alert(`[DEBUG] ImageKit Auth JSON missing fields. Data: ${JSON.stringify(authData).substring(0, 100)}`);
+                        showGlobalAlert('ImageKit Config Error', `Auth JSON missing fields. Data: ${JSON.stringify(authData).substring(0, 100)}`);
                     }
                 } else {
                     const errText = await authResponse.text();
                     console.error('ImageKit auth endpoint returned error:', errText);
-                    alert(`[DEBUG] ImageKit Auth Endpoint Error (${authResponse.status}): ${errText.substring(0, 100)}`);
+                    showGlobalAlert('ImageKit Auth Error', `Status ${authResponse.status}: ${errText.substring(0, 100)}`);
                 }
             }
         } else {
             console.error('Cannot securely use ImageKit: User is not logged in.');
-            alert(`[DEBUG] Cannot securely use ImageKit: User is not logged in.`);
+            showGlobalAlert('Auth Error', `Cannot securely use ImageKit: User is not logged in.`);
         }
     } catch (error: any) {
         console.error('ImageKit API Error:', error);
-        alert(`[DEBUG] ImageKit Catch Error: ${error?.message || 'Unknown'}`);
+        showGlobalAlert('ImageKit Runtime Error', error?.message || 'Unknown catch error.');
     }
 
     // 2️⃣ Fallback to Cloudinary if ImageKit fails
@@ -193,7 +203,7 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void, fo
 
     if (!result) {
         console.error('All upload methods failed or were unavailable.');
-        alert(`[DEBUG] ALL Upload Methods Failed! (ImageKit, Cloudinary, ImgBB) File size: ${file.size} bytes. Type: ${file.type}`);
+        showGlobalAlert('Upload Failed Completely', `Failed all methods (ImageKit, Cloudinary). File size: ${file.size}b.`);
     }
 
     return result;

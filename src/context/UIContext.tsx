@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import PeerProfileModal from '@/components/profile/PeerProfileModal';
 
 // ========== TYPES ==========
@@ -43,7 +43,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
     }, [toastTimeout]);
 
     // Alert state
-    const [alert, setAlert] = useState<AlertState>({
+    const [alertState, setAlertState] = useState<AlertState>({
         visible: false,
         title: '',
         message: '',
@@ -52,21 +52,33 @@ export function UIProvider({ children }: { children: ReactNode }) {
     });
 
     const showAlert = useCallback((title: string, message: string, type: AlertType = 'info', callback: (() => void) | null = null) => {
-        setAlert({ visible: true, title, message, type, callback });
+        setAlertState({ visible: true, title, message, type, callback });
     }, []);
 
     const closeAlert = useCallback(() => {
-        setAlert(prev => ({ ...prev, visible: false }));
+        setAlertState(prev => ({ ...prev, visible: false }));
         setTimeout(() => {
-            if (alert.callback) alert.callback();
+            if (alertState.callback) alertState.callback();
         }, 200);
-    }, [alert.callback]);
+    }, [alertState.callback]);
 
     // Profile state
     const [profileUid, setProfileUid] = useState<string | null>(null);
     const openProfile = useCallback((uid: string) => {
         setProfileUid(uid);
     }, []);
+
+    // Listen for global events triggered outside React (e.g. from utility files like uploadService)
+    useEffect(() => {
+        const handleGlobalAlert = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            if (customEvent.detail) {
+                showAlert(customEvent.detail.title || 'Alert', customEvent.detail.message || '', customEvent.detail.type || 'info');
+            }
+        };
+        window.addEventListener('global-alert', handleGlobalAlert);
+        return () => window.removeEventListener('global-alert', handleGlobalAlert);
+    }, [showAlert]);
 
     return (
         <UIContext.Provider value={{ showToast, showAlert, closeAlert, openProfile }}>
@@ -83,19 +95,19 @@ export function UIProvider({ children }: { children: ReactNode }) {
 
             {/* Custom Alert Modal */}
             <div
-                className={`fixed inset-0 z-[250] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-200 ${alert.visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                className={`fixed inset-0 z-[250] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-200 ${alertState.visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
                     }`}
                 onClick={closeAlert}
                 suppressHydrationWarning
             >
                 <div
-                    className={`bg-white dark:bg-black border-2 border-black dark:border-white w-full max-w-sm p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.2)] transition-transform duration-200 ${alert.visible ? 'scale-100' : 'scale-95'
+                    className={`bg-white dark:bg-black border-2 border-black dark:border-white w-full max-w-sm p-8 text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.2)] transition-transform duration-200 ${alertState.visible ? 'scale-100' : 'scale-95'
                         }`}
                     onClick={e => e.stopPropagation()}
                 >
                     {/* Icon */}
                     <div className="mb-4 flex justify-center">
-                        {alert.type === 'error' && (
+                        {alertState.type === 'error' && (
                             <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
                                 <svg className="w-10 h-10 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
@@ -104,7 +116,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
                                 </svg>
                             </div>
                         )}
-                        {alert.type === 'success' && (
+                        {alertState.type === 'success' && (
                             <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                                 <svg className="w-10 h-10 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -112,7 +124,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
                                 </svg>
                             </div>
                         )}
-                        {(alert.type === 'info' || alert.type === 'warning') && (
+                        {(alertState.type === 'info' || alertState.type === 'warning') && (
                             <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                                 <svg className="w-10 h-10 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <circle cx="12" cy="12" r="10" />
@@ -123,8 +135,8 @@ export function UIProvider({ children }: { children: ReactNode }) {
                         )}
                     </div>
 
-                    <h3 className="text-xl font-bold uppercase mb-2">{alert.title}</h3>
-                    <p className="text-sm opacity-70 mb-6">{alert.message}</p>
+                    <h3 className="text-xl font-bold uppercase mb-2">{alertState.title}</h3>
+                    <p className="text-sm opacity-70 mb-6">{alertState.message}</p>
                     <button
                         onClick={closeAlert}
                         className="w-full py-3 bg-black text-white dark:bg-white dark:text-black font-bold uppercase hover:opacity-80 transition-all"
