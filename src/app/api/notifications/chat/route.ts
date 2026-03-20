@@ -45,8 +45,13 @@ export async function POST(request: Request) {
 
         const adminApp = getApps()[0];
         const messaging = getMessaging(adminApp);
+        const channelId = recipientData?.messageSound === 'message_alternate' ? 'message_alternate' : 'message_default';
 
         const message = {
+            notification: {
+                title: `💬 ${senderName || 'Someone'}`,
+                body,
+            },
             data: {
                 type: 'chat',
                 chatWith: senderUid,
@@ -56,6 +61,11 @@ export async function POST(request: Request) {
             },
             android: {
                 priority: 'high' as const,
+                notification: {
+                    channelId: channelId,
+                    clickAction: 'FCM_PLUGIN_ACTIVITY',
+                    defaultSound: false,
+                }
             },
             webpush: {
                 headers: {

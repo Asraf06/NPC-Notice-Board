@@ -22,6 +22,7 @@ import {
 import { doc, onSnapshot, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, onValue, onDisconnect, set, serverTimestamp as rtdbServerTimestamp, off } from 'firebase/database';
 import { auth, db, googleProvider, rtdb } from '@/lib/firebase';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 // Types
 export interface UserProfile {
@@ -41,6 +42,9 @@ export interface UserProfile {
     isCR?: boolean;
     role?: string;
     registrationDate?: unknown;
+    noticeSound?: string;
+    messageSound?: string;
+    fcmToken?: string;
 }
 
 export interface GlobalSettings {
@@ -95,6 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const [authError, setAuthError] = useState<string | null>(null);
     const clearAuthError = () => setAuthError(null);
+
+    // Call native push notifications handler
+    usePushNotifications(userProfile);
 
     // Listen to global settings
     useEffect(() => {

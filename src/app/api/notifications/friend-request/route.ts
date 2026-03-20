@@ -40,6 +40,10 @@ export async function POST(request: Request) {
         const messaging = getMessaging(adminApp);
 
         const message = {
+            notification: {
+                title: `🤝 New Friend Request`,
+                body: `${senderName} from ${senderDept} wants to connect with you.`,
+            },
             data: {
                 type: 'friend_request',
                 url: '/social/friends?view=requests',
@@ -49,6 +53,11 @@ export async function POST(request: Request) {
             },
             android: {
                 priority: 'high' as const,
+                notification: {
+                    channelId: 'system_default',
+                    clickAction: 'FCM_PLUGIN_ACTIVITY',
+                    defaultSound: true,
+                }
             },
             webpush: {
                 headers: {

@@ -54,7 +54,8 @@ export async function POST(request: Request) {
         const studentsSnap = await adminDb.collection('students').get();
         console.log(`[NoticeNotif] Total students in DB: ${studentsSnap.size}`);
 
-        const tokens: string[] = [];
+        const noticeDefaultTokens: string[] = [];
+        const noticeAlternateTokens: string[] = [];
         const matchedStudents: { uid: string; name: string; dept: string; sem: string; section: string }[] = [];
         let skippedAuthor = 0;
         let skippedDept = 0;
@@ -94,7 +95,11 @@ export async function POST(request: Request) {
 
             // This student matches — collect FCM tokens
             if (student.fcmTokens && Array.isArray(student.fcmTokens)) {
-                tokens.push(...student.fcmTokens);
+                if (student.noticeSound === 'notice_alternate') {
+                    noticeAlternateTokens.push(...student.fcmTokens);
+                } else {
+                    noticeDefaultTokens.push(...student.fcmTokens);
+                }
             }
 
             matchedStudents.push({
@@ -142,24 +147,27 @@ export async function POST(request: Request) {
         }
 
         // Send FCM push notifications
-        if (tokens.length > 0) {
-            const uniqueTokens = [...new Set(tokens)];
-            console.log(`[NoticeNotif] Sending to ${uniqueTokens.length} FCM tokens`);
+        let totalSuccess = 0;
+        let totalFailure = 0;
+        const adminApp = getApps()[0];
+        const messaging = getMessaging(adminApp);
 
-            const adminApp = getApps()[0];
-            const messaging = getMessaging(adminApp);
+        const pushToTokens = async (targetTokens: string[], channelId: string) => {
+            if (targetTokens.length === 0) return;
+            const uniqueTokens = [...new Set(targetTokens)];
+            console.log(`[NoticeNotif] Sending to ${uniqueTokens.length} FCM tokens on channel ${channelId}`);
 
-            // FCM limit: 500 tokens per multicast
             const chunks: string[][] = [];
             for (let i = 0; i < uniqueTokens.length; i += 500) {
                 chunks.push(uniqueTokens.slice(i, i + 500));
             }
 
-            let totalSuccess = 0;
-            let totalFailure = 0;
-
             for (const chunk of chunks) {
                 const message = {
+                    notification: {
+                        title: `📢 ${title}`,
+                        body: (body || '').substring(0, 100),
+                    },
                     data: {
                         type: 'notice',
                         noticeId,
@@ -170,6 +178,11 @@ export async function POST(request: Request) {
                     },
                     android: {
                         priority: 'high' as const,
+                        notification: {
+                            channelId: channelId,
+                            clickAction: 'FCM_PLUGIN_ACTIVITY',
+                            defaultSound: false,
+                        }
                     },
                     webpush: {
                         headers: {
@@ -213,6 +226,11 @@ export async function POST(request: Request) {
                     }
                 }
             }
+        };
+
+        if (noticeDefaultTokens.length > 0 || noticeAlternateTokens.length > 0) {
+            await pushToTokens(noticeDefaultTokens, 'notice_default');
+            await pushToTokens(noticeAlternateTokens, 'notice_alternate');
 
             console.log(`[NoticeNotif] Done: ${totalSuccess} success, ${totalFailure} failures`);
             return NextResponse.json({ success: true, sent: totalSuccess, failed: totalFailure, notified: notifCount }, { headers: corsHeaders });
