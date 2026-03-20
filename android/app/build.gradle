@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.npcnoticeboard.admin"
+    namespace = "com.npcnoticeboard.student.asraful"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.npcnoticeboard.admin"
+        applicationId "com.npcnoticeboard.student.asraful"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
