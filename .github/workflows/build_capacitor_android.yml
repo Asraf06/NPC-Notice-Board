@@ -30,7 +30,10 @@ jobs:
 
     - name: Inject google-services.json
       run: |
-        echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 -d > android/app/google-services.json
+        cat << 'EOF' > temp_services.b64
+        ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        EOF
+        base64 -d -i temp_services.b64 > android/app/google-services.json
 
     - name: Build Next.js Static Export
       run: |
@@ -54,7 +57,10 @@ jobs:
     - name: Setup Debug Keystore
       run: |
         mkdir -p ~/.android
-        echo "${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}" | base64 -d > ~/.android/debug.keystore
+        cat << 'EOF' > temp_keystore.b64
+        ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+        EOF
+        base64 -d -i temp_keystore.b64 > ~/.android/debug.keystore
         echo "========================================"
         echo "  ADD THESE TO FIREBASE PROJECT SETTINGS"
         echo "========================================"
