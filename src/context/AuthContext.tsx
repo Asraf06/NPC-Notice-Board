@@ -233,11 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             if (Capacitor.isNativePlatform()) {
                 try {
-                    await GoogleAuth.initialize({
-                        clientId: '529840057304-obbs5438idptq2qqlmor0ormdq2lf21f.apps.googleusercontent.com',
-                        scopes: ['profile', 'email'],
-                        grantOfflineAccess: true
-                    });
+                    await GoogleAuth.initialize();
                 } catch (e) {
                     console.warn("Init notice:", e);
                 }
