@@ -436,6 +436,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const globalAllowed = globalSettings.allowLogout === true;
         const userAllowed = userProfile?.allowLogout === true;
         if (globalAllowed || userAllowed) {
+            try {
+                if (Capacitor.isNativePlatform()) {
+                    await GoogleAuth.signOut().catch(() => {});
+                }
+            } catch (e) {}
             await signOut(auth);
         }
     };
