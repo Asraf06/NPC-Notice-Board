@@ -2,8 +2,14 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { getMessaging } from 'firebase-admin/messaging';
 import { getApps } from 'firebase-admin/app';
+import { withCors, corsOptionsResponse } from '@/lib/cors';
 
 export const dynamic = 'force-dynamic';
+
+// Handle CORS preflight requests from Capacitor WebView
+export async function OPTIONS() {
+    return corsOptionsResponse();
+}
 
 /**
  * POST /api/notifications/friend-request
@@ -19,13 +25,13 @@ export async function POST(request: Request) {
         const { recipientUid, senderUid, senderName, senderPhoto, senderDept } = data;
 
         if (!recipientUid || !senderUid) {
-            return NextResponse.json({ error: 'Missing recipientUid or senderUid' }, { status: 400 });
+            return withCors(NextResponse.json({ error: 'Missing recipientUid or senderUid' }, { status: 400 }));
         }
 
         // Get recipient's FCM tokens
         const recipientDoc = await adminDb.collection('students').doc(recipientUid).get();
         if (!recipientDoc.exists) {
-            return NextResponse.json({ success: true, sent: 0, reason: 'Recipient not found' });
+            return withCors(NextResponse.json({ success: true, sent: 0, reason: 'Recipient not found' }));
         }
 
         const recipientData = recipientDoc.data();
@@ -33,7 +39,7 @@ export async function POST(request: Request) {
 
         if (tokens.length === 0) {
             console.log(`[FriendRequestNotif] No FCM tokens for recipient ${recipientUid}`);
-            return NextResponse.json({ success: true, sent: 0 });
+            return withCors(NextResponse.json({ success: true, sent: 0 }));
         }
 
         const adminApp = getApps()[0];
@@ -96,10 +102,10 @@ export async function POST(request: Request) {
             }
         }
 
-        return NextResponse.json({ success: true, sent: response.successCount });
+        return withCors(NextResponse.json({ success: true, sent: response.successCount }));
 
     } catch (error) {
         console.error('[FriendRequestNotif] Error:', error);
-        return NextResponse.json({ error: 'Failed to send friend request notification' }, { status: 500 });
+        return withCors(NextResponse.json({ error: 'Failed to send friend request notification' }, { status: 500 }));
     }
 }

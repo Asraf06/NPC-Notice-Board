@@ -2,18 +2,13 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { getMessaging } from 'firebase-admin/messaging';
 import { getApps } from 'firebase-admin/app';
+import { withCors, corsOptionsResponse } from '@/lib/cors';
 
 export const dynamic = 'force-dynamic';
 
-// CORS headers for cross-origin requests (admin HTML panel)
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-};
-
+// Handle CORS preflight requests from Capacitor WebView & admin panel
 export async function OPTIONS() {
-    return NextResponse.json({}, { headers: corsHeaders });
+    return corsOptionsResponse();
 }
 
 /**
@@ -41,7 +36,7 @@ export async function POST(request: Request) {
         } = data;
 
         if (!noticeId || !title) {
-            return NextResponse.json({ error: 'Missing noticeId or title' }, { status: 400, headers: corsHeaders });
+            return withCors(NextResponse.json({ error: 'Missing noticeId or title' }, { status: 400 }));
         }
 
         const normalizedDept = (targetDept || 'All').toLowerCase();
@@ -233,14 +228,14 @@ export async function POST(request: Request) {
             await pushToTokens(noticeAlternateTokens, 'notice_alternate');
 
             console.log(`[NoticeNotif] Done: ${totalSuccess} success, ${totalFailure} failures`);
-            return NextResponse.json({ success: true, sent: totalSuccess, failed: totalFailure, notified: notifCount }, { headers: corsHeaders });
+            return withCors(NextResponse.json({ success: true, sent: totalSuccess, failed: totalFailure, notified: notifCount }));
         }
 
         console.log('[NoticeNotif] No FCM tokens found for matching students');
-        return NextResponse.json({ success: true, sent: 0, notified: notifCount }, { headers: corsHeaders });
+        return withCors(NextResponse.json({ success: true, sent: 0, notified: notifCount }));
 
     } catch (error) {
         console.error('[NoticeNotif] Error:', error);
-        return NextResponse.json({ error: 'Failed to send notifications' }, { status: 500, headers: corsHeaders });
+        return withCors(NextResponse.json({ error: 'Failed to send notifications' }, { status: 500 }));
     }
 }

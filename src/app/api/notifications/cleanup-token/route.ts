@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { withCors, corsOptionsResponse } from '@/lib/cors';
 
 export const dynamic = 'force-dynamic';
+
+// Handle CORS preflight requests from Capacitor WebView
+export async function OPTIONS() {
+    return corsOptionsResponse();
+}
 
 /**
  * POST /api/notifications/cleanup-token
@@ -17,7 +23,7 @@ export async function POST(request: Request) {
         const { token, ownerUid } = await request.json();
 
         if (!token || !ownerUid) {
-            return NextResponse.json({ error: 'Missing token or ownerUid' }, { status: 400 });
+            return withCors(NextResponse.json({ error: 'Missing token or ownerUid' }, { status: 400 }));
         }
 
         // Find all students who have this token
@@ -47,9 +53,9 @@ export async function POST(request: Request) {
             console.log(`[TokenCleanup] Cleaned up token from ${removedCount} other user(s), now exclusively owned by ${ownerUid}`);
         }
 
-        return NextResponse.json({ success: true, removedFrom: removedCount });
+        return withCors(NextResponse.json({ success: true, removedFrom: removedCount }));
     } catch (error) {
         console.error('[TokenCleanup] Error:', error);
-        return NextResponse.json({ error: 'Failed to cleanup token' }, { status: 500 });
+        return withCors(NextResponse.json({ error: 'Failed to cleanup token' }, { status: 500 }));
     }
 }

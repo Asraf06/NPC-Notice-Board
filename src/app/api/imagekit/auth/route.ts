@@ -1,15 +1,21 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { adminAuth } from '@/lib/firebaseAdmin';
+import { withCors, corsOptionsResponse } from '@/lib/cors';
 
 export const dynamic = 'force-dynamic';
+
+// Handle CORS preflight requests from Capacitor WebView
+export async function OPTIONS() {
+    return corsOptionsResponse();
+}
 
 export async function GET(request: Request) {
     try {
         // Authenticate the user securely
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json({ error: 'Unauthorized. Missing token.' }, { status: 401 });
+            return withCors(NextResponse.json({ error: 'Unauthorized. Missing token.' }, { status: 401 }));
         }
 
         const idToken = authHeader.split('Bearer ')[1];
@@ -17,7 +23,7 @@ export async function GET(request: Request) {
             await adminAuth.verifyIdToken(idToken);
         } catch (error) {
             console.error('Invalid ID token:', error);
-            return NextResponse.json({ error: 'Unauthorized. Invalid token.' }, { status: 401 });
+            return withCors(NextResponse.json({ error: 'Unauthorized. Invalid token.' }, { status: 401 }));
         }
 
         // Generate ImageKit Signature
@@ -28,7 +34,7 @@ export async function GET(request: Request) {
         const urlEndpoint = process.env.IMAGEKIT_URL_ENDPOINT;
 
         if (!privateKey || !publicKey || !urlEndpoint) {
-            return NextResponse.json({ error: "ImageKit configuration is missing in environment variables" }, { status: 500 });
+            return withCors(NextResponse.json({ error: "ImageKit configuration is missing in environment variables" }, { status: 500 }));
         }
 
         const signature = crypto
@@ -36,15 +42,15 @@ export async function GET(request: Request) {
             .update(token + expire)
             .digest('hex');
 
-        return NextResponse.json({
+        return withCors(NextResponse.json({
             token,
             expire,
             signature,
             publicKey,
             urlEndpoint,
-        });
+        }));
     } catch (err) {
         console.error("Error generating ImageKit auth:", err);
-        return NextResponse.json({ error: "Failed to generate auth signature" }, { status: 500 });
+        return withCors(NextResponse.json({ error: "Failed to generate auth signature" }, { status: 500 }));
     }
 }
