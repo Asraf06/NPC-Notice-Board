@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.npcnoticeboard.asraf',
+  appId: 'com.npcnoticeboard.admin',
   appName: 'NPC Notice Board',
   webDir: 'out',
   server: {
@@ -13,9 +13,8 @@ const config: CapacitorConfig = {
   plugins: {
     GoogleAuth: {
       scopes: ['profile', 'email'],
-      androidClientId: '529840057304-370g31qebqpcnuo9n4i5nv47sm6n3qh7.apps.googleusercontent.com',
       serverClientId: '529840057304-obbs5438idptq2qqlmor0ormdq2lf21f.apps.googleusercontent.com',
-      forceCodeForRefreshToken: false,
+      forceCodeForRefreshToken: true,
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],

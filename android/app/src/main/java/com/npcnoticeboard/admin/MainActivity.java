@@ -1,4 +1,4 @@
-package com.npcnoticeboard.asraf;
+package com.npcnoticeboard.admin;
 
 import com.getcapacitor.BridgeActivity;
 

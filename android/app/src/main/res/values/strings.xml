@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">NPC Notice Board</string>
     <string name="title_activity_main">NPC Notice Board</string>
-    <string name="package_name">com.npcnoticeboard.asraf</string>
-    <string name="custom_url_scheme">com.npcnoticeboard.asraf</string>
+    <string name="package_name">com.npcnoticeboard.admin</string>
+    <string name="custom_url_scheme">com.npcnoticeboard.admin</string>
     <string name="server_client_id">529840057304-obbs5438idptq2qqlmor0ormdq2lf21f.apps.googleusercontent.com</string>
 </resources>

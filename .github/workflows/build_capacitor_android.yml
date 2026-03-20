@@ -58,20 +58,19 @@ jobs:
 
     - name: Setup Debug Keystore
       run: |
-        mkdir -p ~/.android
         cat << 'EOF' > temp_keystore.b64
         ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
         EOF
-        base64 -d -i temp_keystore.b64 > ~/.android/debug.keystore
+        base64 -d -i temp_keystore.b64 > android/debug.keystore
         echo "========================================"
         echo "  ADD THESE TO FIREBASE PROJECT SETTINGS"
         echo "========================================"
         echo ""
         echo "SHA-1:"
-        keytool -list -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey | grep "SHA1:" | awk '{print $2}'
+        keytool -list -v -keystore android/debug.keystore -storepass android -alias androiddebugkey | grep "SHA1:" | awk '{print $2}'
         echo ""
         echo "SHA-256:"
-        keytool -list -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey | grep "SHA256:" | awk '{print $2}'
+        keytool -list -v -keystore android/debug.keystore -storepass android -alias androiddebugkey | grep "SHA256:" | awk '{print $2}'
         echo ""
         echo "========================================"
 
