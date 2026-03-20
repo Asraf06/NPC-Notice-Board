@@ -92,19 +92,23 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void, fo
                             });
                         } else {
                             console.error(`${serviceName} upload response invalid:`, data);
+                            alert(`[DEBUG] ${serviceName} Response Invalid: ${JSON.stringify(data).substring(0, 100)}`);
                             resolve(null);
                         }
-                    } catch (err) {
+                    } catch (err: any) {
                         console.error(`${serviceName} parse error:`, err);
+                        alert(`[DEBUG] ${serviceName} JSON Parse Error: ${err?.message || 'Unknown'}`);
                         resolve(null);
                     }
                 } else {
                     console.error(`${serviceName} HTTP status ${xhr.status}`, xhr.responseText);
+                    alert(`[DEBUG] ${serviceName} Failed! Status: ${xhr.status}. Response: ${xhr.responseText.substring(0, 100)}`);
                     resolve(null);
                 }
             };
             xhr.onerror = (err) => {
                 console.error(`${serviceName} XHR network error`);
+                alert(`[DEBUG] ${serviceName} XHR Network Error. Check CORS or invalid File object inside FormData.`);
                 resolve(null);
             };
             xhr.open('POST', url);
@@ -120,36 +124,48 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void, fo
         const currentUser = auth.currentUser;
         if (currentUser) {
             const idToken = await currentUser.getIdToken();
-            const authResponse = await fetch(apiUrl('/api/imagekit/auth'), {
+            const authUrl = apiUrl('/api/imagekit/auth');
+            const authResponse = await fetch(authUrl, {
                 headers: {
                     Authorization: `Bearer ${idToken}`
                 }
+            }).catch(err => {
+                alert(`[DEBUG] Fetch to ${authUrl} failed: ${err.message}`);
+                return null;
             });
 
-            if (authResponse.ok) {
-                const authData = await authResponse.json();
+            if (authResponse) {
+                if (authResponse.ok) {
+                    const authData = await authResponse.json();
 
-                if (authData && authData.token && authData.signature && authData.expire) {
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    formData.append('publicKey', authData.publicKey);
-                    formData.append('signature', authData.signature);
-                    formData.append('expire', authData.expire.toString());
-                    formData.append('token', authData.token);
-                    formData.append('fileName', file.name);
-                    formData.append('useUniqueFileName', 'true');
-                    formData.append('folder', folderPath);
+                    if (authData && authData.token && authData.signature && authData.expire) {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        formData.append('publicKey', authData.publicKey);
+                        formData.append('signature', authData.signature);
+                        formData.append('expire', authData.expire.toString());
+                        formData.append('token', authData.token);
+                        formData.append('fileName', file.name);
+                        formData.append('useUniqueFileName', 'true');
+                        formData.append('folder', folderPath);
 
-                    result = await doXhrUpload('https://upload.imagekit.io/api/v1/files/upload', formData, 'imagekit');
+                        result = await doXhrUpload('https://upload.imagekit.io/api/v1/files/upload', formData, 'imagekit');
+                    } else {
+                        alert(`[DEBUG] ImageKit Auth JSON missing fields. Data: ${JSON.stringify(authData).substring(0, 100)}`);
+                    }
+                } else {
+                    const errText = await authResponse.text();
+                    console.error('ImageKit auth endpoint returned error:', errText);
+                    alert(`[DEBUG] ImageKit Auth Endpoint Error (${authResponse.status}): ${errText.substring(0, 100)}`);
                 }
-            } else {
-                console.error('ImageKit auth endpoint returned error:', await authResponse.text());
             }
         } else {
             console.error('Cannot securely use ImageKit: User is not logged in.');
+            alert(`[DEBUG] Cannot securely use ImageKit: User is not logged in.`);
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error('ImageKit API Error:', error);
+        alert(`[DEBUG] ImageKit Catch Error: ${error?.message || 'Unknown'}`);
     }
 
     // 2️⃣ Fallback to Cloudinary if ImageKit fails
@@ -177,6 +193,7 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void, fo
 
     if (!result) {
         console.error('All upload methods failed or were unavailable.');
+        alert(`[DEBUG] ALL Upload Methods Failed! (ImageKit, Cloudinary, ImgBB) File size: ${file.size} bytes. Type: ${file.type}`);
     }
 
     return result;
