@@ -13,8 +13,12 @@ import SectionMigrationScreen from '@/components/SectionMigrationScreen';
 
 import { usePathname } from 'next/navigation';
 
+// Routes where bottom nav should be hidden (utility/detail pages)
+const HIDE_NAV_ROUTES = ['/profile', '/settings', '/install'];
+
 function AuthenticatedShell({ children }: { children: React.ReactNode }) {
     const { authStep, userProfile } = useAuth();
+    const pathname = usePathname();
 
     // Show nothing behind the auth overlay until authenticated
     if (authStep !== 'authenticated') return null;
@@ -23,6 +27,8 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
     if (userProfile && !userProfile.section) {
         return <SectionMigrationScreen />;
     }
+
+    const hideBottomNav = HIDE_NAV_ROUTES.some(route => pathname.startsWith(route));
 
     return (
         <div className="flex-1 flex flex-col h-[100dvh] overflow-hidden bg-white dark:bg-black">
@@ -35,8 +41,8 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
                 </div>
             </div>
 
-            <BottomNav />
-            <InstallPrompt />
+            {!hideBottomNav && <BottomNav />}
+            {!hideBottomNav && <InstallPrompt />}
         </div>
     );
 }

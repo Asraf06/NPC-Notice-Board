@@ -34,7 +34,7 @@ export default function SettingsView() {
 
     return (
         <div className="flex-1 overflow-y-auto">
-            <div className="max-w-2xl mx-auto px-4 py-8 md:py-10 pb-24 md:pb-10">
+            <div className="max-w-2xl mx-auto px-4 py-8 md:py-10 pb-8 md:pb-10">
                 {/* Page Title */}
                 <div className="mb-8">
                     <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">

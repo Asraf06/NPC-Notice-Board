@@ -141,7 +141,8 @@ export default function InstallPage() {
                         </div>
                     </div>
 
-                    {/* PWA SECTION */}
+                    {/* PWA SECTION — hidden in native app */}
+                    {!Capacitor.isNativePlatform() && (
                     <div className="border-4 border-black dark:border-white p-5 bg-white dark:bg-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.2)]">
                         <div className="flex items-center gap-3 mb-4">
                             <Monitor className="w-6 h-6 text-purple-600" />
@@ -170,6 +171,7 @@ export default function InstallPage() {
                             </div>
                         )}
                     </div>
+                    )}
                 </div>
             )}
         </div>
