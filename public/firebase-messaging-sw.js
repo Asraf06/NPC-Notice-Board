@@ -36,8 +36,15 @@ messaging.onBackgroundMessage((payload) => {
         clickUrl = `/social/recent?chatWith=${data.chatWith}`;
     }
 
-    // Determine unique tag so every notification is physical and distinct (no silent replacing)
+    // Determine unique tag so every notification is physical and distinct
     const uniqueTag = `notif-${data.noticeId || data.chatWith || ''}-${Date.now()}`;
+
+    // If Firebase is already going to show a default notification because
+    // payload.notification is present, DO NOT duplicate it here!
+    // The backend now sends the correct icons/badges inside webpush config.
+    if (payload.notification) {
+        return;
+    }
 
     self.registration.showNotification(title, {
         body,

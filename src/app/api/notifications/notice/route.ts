@@ -181,6 +181,15 @@ export async function POST(request: Request) {
                     webpush: {
                         headers: {
                             Urgency: 'high'
+                        },
+                        notification: {
+                            icon: 'https://npcnoticeboard.vercel.app/icons/icon-192.png',
+                            badge: 'https://npcnoticeboard.vercel.app/icons/icon-192.png',
+                            requireInteraction: true,
+                            vibrate: [200, 100, 200]
+                        },
+                        fcmOptions: {
+                            link: `https://npcnoticeboard.vercel.app/notices?noticeId=${noticeId}`
                         }
                     },
                     tokens: chunk,
