@@ -5,7 +5,9 @@ import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { UserProfile } from '../context/AuthContext';
 
-export function usePushNotifications(userProfile: UserProfile | null) {
+import { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+
+export function usePushNotifications(userProfile: UserProfile | null, router: AppRouterInstance | null) {
     const [token, setToken] = useState<string | null>(null);
 
     useEffect(() => {
@@ -122,6 +124,21 @@ export function usePushNotifications(userProfile: UserProfile | null) {
 
                 await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
                     console.log('Push action performed: ', notification);
+                    const data = notification.notification.data;
+                    if (router && data) {
+                        try {
+                            if (data.type === 'notice' && data.noticeId) {
+                                router.push(`/notices?noticeId=${data.noticeId}`);
+                                // Dispatch custom event so the UI updates if already on the page
+                                window.dispatchEvent(new CustomEvent('open-notice', { detail: { noticeId: data.noticeId } }));
+                            } else if (data.type === 'chat' && data.chatWith) {
+                                router.push(`/social/recent?chatWith=${data.chatWith}`);
+                                window.dispatchEvent(new CustomEvent('open-chat', { detail: { chatWith: data.chatWith } }));
+                            }
+                        } catch (err) {
+                            console.error('Routing err:', err);
+                        }
+                    }
                 });
 
                 // Finally register with Apple/Google to receive token

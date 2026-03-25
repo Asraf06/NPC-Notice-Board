@@ -175,7 +175,6 @@ export async function POST(request: Request) {
                         priority: 'high' as const,
                         notification: {
                             channelId: channelId,
-                            clickAction: 'FCM_PLUGIN_ACTIVITY',
                             defaultSound: false,
                         }
                     },

@@ -19,6 +19,7 @@ import {
     GoogleAuthProvider,
     signInWithCredential,
 } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 import { doc, onSnapshot, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, onValue, onDisconnect, set, serverTimestamp as rtdbServerTimestamp, off } from 'firebase/database';
 import { auth, db, googleProvider, rtdb } from '@/lib/firebase';
@@ -99,9 +100,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const [authError, setAuthError] = useState<string | null>(null);
     const clearAuthError = () => setAuthError(null);
+    const router = typeof window !== 'undefined' ? useRouter() : null;
 
     // Call native push notifications handler
-    usePushNotifications(userProfile);
+    usePushNotifications(userProfile, router);
 
     // Listen to global settings
     useEffect(() => {

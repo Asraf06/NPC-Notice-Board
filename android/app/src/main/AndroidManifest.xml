@@ -36,6 +36,13 @@
     </application>
 
     <!-- Permissions -->
-
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required for Android 13+ (API 33) to show notifications -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- For notification vibration -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Keep device awake for reliable push delivery -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Reschedule local notifications after device reboot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>
