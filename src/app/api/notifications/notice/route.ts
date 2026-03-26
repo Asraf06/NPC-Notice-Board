@@ -184,7 +184,7 @@ export async function POST(request: Request) {
                         },
                         notification: {
                             icon: 'https://npcnoticeboard.vercel.app/icons/icon-192.png',
-                            badge: 'https://npcnoticeboard.vercel.app/icons/icon-192.png',
+                            badge: 'https://npcnoticeboard.vercel.app/icons/badge.png',
                             requireInteraction: true,
                             vibrate: [200, 100, 200]
                         },
