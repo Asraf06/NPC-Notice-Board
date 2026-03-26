@@ -439,11 +439,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userAllowed = userProfile?.allowLogout === true;
         if (globalAllowed || userAllowed) {
             try {
+                // Wrap in thorough try/catch as native bridges can sometimes throw uncatchable Promise rejections
+                // If it crashes because it wasn't initialized, we catch it securely
                 if (Capacitor.isNativePlatform()) {
-                    await GoogleAuth.signOut().catch(() => {});
+                    try {
+                        await GoogleAuth.initialize({
+                            clientId: '529840057304-obbs5438idptq2qqlmor0ormdq2lf21f.apps.googleusercontent.com',
+                        });
+                        await GoogleAuth.signOut();
+                    } catch (err) {
+                        console.warn('Native Google SignOut skipped:', err);
+                    }
                 }
             } catch (e) {}
+            
             await signOut(auth);
+            if (router) {
+                router.push('/login');
+            }
         }
     };
 

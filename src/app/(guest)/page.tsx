@@ -24,21 +24,24 @@ export default function LandingPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { authStep, user } = useAuth();
   const router = useRouter();
-  const [isMounted, setIsMounted] = useState(false);
-  const [isPWA, setIsPWA] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+  
+  // Synchronously detect PWA/Native on client initialization
+  const [isPWA, setIsPWA] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.matchMedia('(display-mode: standalone)').matches 
+        || (window.navigator as any).standalone
+        || Capacitor.isNativePlatform();
+    }
+    return false;
+  });
 
-  // Redirect only after mount to prevent hydration mismatch
   useEffect(() => {
-    setIsMounted(true);
-    // Detect if running as a standalone PWA
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
-      || (window.navigator as any).standalone
-      || Capacitor.isNativePlatform();
-    if (isStandalone) setIsPWA(true);
+    setIsClient(true);
   }, []);
 
   useEffect(() => {
-    if (isMounted) {
+    if (isClient) {
       if (isPWA) {
         // PWA user: always skip landing page
         if (authStep === 'authenticated' && user) {
@@ -51,11 +54,11 @@ export default function LandingPage() {
         router.push('/notices');
       }
     }
-  }, [isMounted, isPWA, authStep, user, router]);
+  }, [isClient, isPWA, authStep, user, router]);
 
   useEffect(() => {
     // Only init locomotive scroll if we haven't redirected and DOM is ready
-    if (!scrollRef.current || authStep === 'authenticated' || !isMounted) return;
+    if (!scrollRef.current || authStep === 'authenticated' || !isClient) return;
 
     let scroll: any;
     try {
@@ -73,10 +76,10 @@ export default function LandingPage() {
     return () => {
       if (scroll) scroll.destroy();
     };
-  }, [authStep, isMounted]);
+  }, [authStep, isClient]);
 
   // If PWA or authenticated, don't show landing page content
-  if (isMounted && (isPWA || authStep === 'authenticated')) return <div className="min-h-screen bg-black" />;
+  if (isClient && (isPWA || authStep === 'authenticated')) return <div className="min-h-screen bg-black" />;
 
   return (
     <div
