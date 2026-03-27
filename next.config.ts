@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
   turbopack: {},
   env: {
     NEXT_PUBLIC_APP_VERSION: packageJson.version,
+    NEXT_PUBLIC_IS_CAPACITOR: isCapacitor ? "true" : "false",
   },
   ...(isCapacitor && {
     output: "export",

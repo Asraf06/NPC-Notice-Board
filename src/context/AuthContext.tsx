@@ -127,25 +127,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // OFFLINE AUTH BYPASS (Native APK only)
     // If the app is offline and offline caching is enabled,
     // skip Firebase auth entirely and use cached profile.
+    // Once bypass is applied, it acts as a HARD LOCK —
+    // no subsequent Firebase callbacks can override it.
     // ============================================
     const offlineBypassApplied = useRef(false);
 
     // Auth state listener
     useEffect(() => {
         // ── IMMEDIATE OFFLINE BYPASS ──
-        // If native + offline + cache enabled + cached profile: skip Firebase entirely
-        if (Capacitor.isNativePlatform() && !isOnline() && isOfflineCacheEnabled()) {
+        // On native: if cache enabled + cached profile + offline → skip Firebase entirely
+        // Also handle unreliable navigator.onLine on Android at startup by checking
+        // if we have a cached profile (which means we were online before) regardless
+        if (Capacitor.isNativePlatform() && isOfflineCacheEnabled()) {
             const cachedProfile = getCachedUserProfile();
-            if (cachedProfile && !offlineBypassApplied.current) {
+            if (cachedProfile && !isOnline()) {
                 console.log('[OfflineAuth] Immediate bypass — using cached profile');
                 offlineBypassApplied.current = true;
                 setUserProfile(cachedProfile as UserProfile);
                 setAuthStep('authenticated');
-                return; // Don't set up Firebase listeners at all
+                // Still set up listeners so we can recover when back online
             }
         }
 
         const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+            // ── HARD LOCK: If offline bypass was applied, ignore all auth state changes ──
+            if (offlineBypassApplied.current) {
+                console.log('[OfflineAuth] Bypass lock active — ignoring onAuthStateChanged');
+                return;
+            }
+
             if (firebaseUser) {
                 setUser(firebaseUser);
 
@@ -159,15 +169,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const unsubProfile = onSnapshot(
                     doc(db, 'students', firebaseUser.uid),
                     async (docSnap) => {
+                        // ── HARD LOCK CHECK inside snapshot too ──
+                        if (offlineBypassApplied.current) {
+                            console.log('[OfflineAuth] Bypass lock active — ignoring profile snapshot');
+                            return;
+                        }
+
                         const userData = docSnap.exists() ? (docSnap.data() as UserProfile) : null;
 
                         // Check if profile is missing or incomplete
                         if (!userData || !userData.name || !userData.roll) {
-                            // If offline + native, try cached profile instead of hanging on getDoc
-                            if (Capacitor.isNativePlatform() && !isOnline() && isOfflineCacheEnabled()) {
+                            // If offline + native, try cached profile instead of showing Identification
+                            if (Capacitor.isNativePlatform() && isOfflineCacheEnabled()) {
                                 const cachedProfile = getCachedUserProfile();
                                 if (cachedProfile) {
-                                    console.log('[OfflineAuth] Profile incomplete from cache, using saved profile');
+                                    console.log('[OfflineAuth] Profile incomplete/missing, using cached profile');
+                                    offlineBypassApplied.current = true;
                                     setUserProfile(cachedProfile as UserProfile);
                                     setAuthStep('authenticated');
                                     return;
@@ -249,11 +266,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     },
                     (err) => {
                         console.error("Profile snapshot error:", err);
-                        // If native + offline + cached profile → use cached data
-                        if (Capacitor.isNativePlatform() && !isOnline() && isOfflineCacheEnabled()) {
+                        // If native + cached profile → use cached data
+                        if (Capacitor.isNativePlatform() && isOfflineCacheEnabled()) {
                             const cachedProfile = getCachedUserProfile();
                             if (cachedProfile) {
                                 console.log('[OfflineAuth] Using cached profile after snapshot error');
+                                offlineBypassApplied.current = true;
                                 setUserProfile(cachedProfile as UserProfile);
                                 setAuthStep('authenticated');
                                 return;
@@ -268,9 +286,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return () => unsubProfile();
             } else {
                 // No firebase user — but if offline on native with cached profile, bypass
-                if (Capacitor.isNativePlatform() && !isOnline() && isOfflineCacheEnabled()) {
+                if (Capacitor.isNativePlatform() && isOfflineCacheEnabled()) {
                     const cachedProfile = getCachedUserProfile();
-                    if (cachedProfile && !offlineBypassApplied.current) {
+                    if (cachedProfile) {
                         console.log('[OfflineAuth] No Firebase user but have cached profile, entering offline mode');
                         offlineBypassApplied.current = true;
                         setUserProfile(cachedProfile as UserProfile);

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:mobile": "cross-env CAPACITOR_BUILD=true next build && npx cap sync android",
+    "build:mobile": "node -e \"const fs=require('fs');if(fs.existsSync('src/app/api')){fs.renameSync('src/app/api','src/app/_api_backup')}\" && cross-env CAPACITOR_BUILD=true next build && node -e \"const fs=require('fs');if(fs.existsSync('src/app/_api_backup')){fs.renameSync('src/app/_api_backup','src/app/api')}\" && npx cap sync android",
     "start": "next start",
     "lint": "eslint"
   },
