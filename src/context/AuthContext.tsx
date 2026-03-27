@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import {
@@ -24,6 +24,7 @@ import { doc, onSnapshot, getDoc, setDoc, serverTimestamp, collection, query, wh
 import { ref, onValue, onDisconnect, set, serverTimestamp as rtdbServerTimestamp, off } from 'firebase/database';
 import { auth, db, googleProvider, rtdb } from '@/lib/firebase';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { isOfflineCacheEnabled, isOnline, getCachedUserProfile, cacheUserProfile } from '@/lib/offlineCache';
 
 // Types
 export interface UserProfile {
@@ -122,6 +123,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => unsub();
     }, []);
 
+    // ============================================
+    // OFFLINE AUTH BYPASS (Native APK only)
+    // If the app is offline and offline caching is enabled,
+    // skip Firebase auth and use cached profile data.
+    // ============================================
+    const offlineBypassApplied = useRef(false);
+
+    useEffect(() => {
+        // Only applies on native platform with offline cache enabled
+        if (!Capacitor.isNativePlatform() || !isOfflineCacheEnabled()) return;
+
+        const timer = setTimeout(() => {
+            // If we're still stuck on 'loading' and we're offline, try cache
+            if (authStep === 'loading' && !isOnline() && !offlineBypassApplied.current) {
+                const cachedProfile = getCachedUserProfile();
+                if (cachedProfile) {
+                    console.log('[OfflineAuth] Bypassing auth with cached profile');
+                    offlineBypassApplied.current = true;
+                    setUserProfile(cachedProfile as UserProfile);
+                    setAuthStep('authenticated');
+                }
+            }
+        }, 3000); // 3 second grace period for Firebase to resolve
+
+        return () => clearTimeout(timer);
+    }, [authStep]);
+
     // Auth state listener
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -146,8 +174,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             if (!docSnap.exists()) {
                                 const teacherDoc = await getDoc(doc(db, 'teachers', firebaseUser.uid));
                                 if (teacherDoc.exists()) {
-                                    // Teacher detected — for now go to profile step
-                                    // In Next.js, could redirect to /teacher
                                     setAuthStep('profile');
                                     return;
                                 }
@@ -182,25 +208,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         } catch (e) { console.error("Access control check failed", e) }
 
                         setUserProfile(userData);
-                        // Make sure we don't clear an error immediately if authStep was already authenticated, but just in case
                         setAuthStep('authenticated');
+
+                        // Cache profile for offline use (native only)
+                        if (Capacitor.isNativePlatform()) {
+                            cacheUserProfile(userData);
+                        }
 
                         // --- START PRESENCE SYSTEM ---
                         const userStatusRef = ref(rtdb, `status/${firebaseUser.uid}`);
                         const connectedRef = ref(rtdb, '.info/connected');
 
-                        // Clean up previous listener on this ref if any
                         off(connectedRef);
 
                         onValue(connectedRef, (snap) => {
                             if (snap.val() === true) {
-                                // We're connected (or reconnected)!
-                                // 1. Establish a callback for when we disconnect
                                 onDisconnect(userStatusRef).set({
                                     state: 'offline',
                                     last_changed: rtdbServerTimestamp()
                                 }).then(() => {
-                                    // 2. Now that the disconnect hook is queued, set our status to online
                                     set(userStatusRef, {
                                         state: 'online',
                                         last_changed: rtdbServerTimestamp()
@@ -212,9 +238,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                     },
                     (err) => {
-                        // Error callback: show profile step only if still authenticated
+                        console.error("Profile snapshot error:", err);
+                        // If native + offline + cached profile → use cached data
+                        if (Capacitor.isNativePlatform() && !isOnline() && isOfflineCacheEnabled()) {
+                            const cachedProfile = getCachedUserProfile();
+                            if (cachedProfile) {
+                                console.log('[OfflineAuth] Using cached profile after snapshot error');
+                                setUserProfile(cachedProfile as UserProfile);
+                                setAuthStep('authenticated');
+                                return;
+                            }
+                        }
                         if (auth.currentUser) {
-                            console.error("Profile snapshot error:", err);
                             setAuthStep('profile');
                         }
                     }
@@ -222,6 +257,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                 return () => unsubProfile();
             } else {
+                // No firebase user — but if offline on native with cached profile, bypass
+                if (Capacitor.isNativePlatform() && !isOnline() && isOfflineCacheEnabled()) {
+                    const cachedProfile = getCachedUserProfile();
+                    if (cachedProfile && !offlineBypassApplied.current) {
+                        console.log('[OfflineAuth] No Firebase user but have cached profile, entering offline mode');
+                        offlineBypassApplied.current = true;
+                        setUserProfile(cachedProfile as UserProfile);
+                        setAuthStep('authenticated');
+                        return;
+                    }
+                }
                 setUser(null);
                 setUserProfile(null);
                 setAuthStep('login');

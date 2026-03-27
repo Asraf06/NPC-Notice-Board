@@ -14,6 +14,7 @@ const KEYS = {
     notices: `${CACHE_PREFIX}notices`,
     categories: `${CACHE_PREFIX}categories`,
     routine: `${CACHE_PREFIX}routine`,
+    userProfile: `${CACHE_PREFIX}user_profile`,
     lastSync: `${CACHE_PREFIX}last_sync`,
 } as const;
 
@@ -70,6 +71,15 @@ export function cacheRoutine(routineData: any, docId: string): void {
     }
 }
 
+export function cacheUserProfile(profile: any): void {
+    if (!isOfflineCacheEnabled()) return;
+    try {
+        localStorage.setItem(KEYS.userProfile, JSON.stringify(profile));
+    } catch (e) {
+        console.warn('[OfflineCache] Failed to cache user profile:', e);
+    }
+}
+
 // ============================================
 // Load data from cache
 // ============================================
@@ -100,6 +110,15 @@ export function getCachedRoutine(docId: string): any | null {
         // Only return if it matches the current user's routine doc
         if (parsed.docId === docId) return parsed.data;
         return null;
+    } catch {
+        return null;
+    }
+}
+
+export function getCachedUserProfile(): any | null {
+    try {
+        const raw = localStorage.getItem(KEYS.userProfile);
+        return raw ? JSON.parse(raw) : null;
     } catch {
         return null;
     }
