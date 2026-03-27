@@ -205,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         }
 
                         // ── Cache profile IMMEDIATELY for offline use (before any getDoc calls) ──
-                        if (Capacitor.isNativePlatform()) {
+                        if (Capacitor.isNativePlatform() && isOnline()) {
                             cacheUserProfile(userData);
                         }
 

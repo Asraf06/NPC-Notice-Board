@@ -99,6 +99,12 @@ export default function NoticesView() {
 
         const q = query(collection(db, 'notices'), orderBy('timestamp', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
+            // Prevent wiping out offline cache if Firebase emits empty offline snapshot
+            if (!isOnline() && snapshot.metadata.fromCache && snapshot.empty) {
+                console.log('[NoticesView] Ignored empty offline Firestore snapshot to protect local cache.');
+                return;
+            }
+
             const notices: NoticeData[] = [];
             snapshot.forEach(doc => {
                 notices.push({ id: doc.id, ...doc.data() } as NoticeData);
@@ -107,7 +113,7 @@ export default function NoticesView() {
             setNoticesLoaded(true);
 
             // Save to offline cache if enabled
-            if (isOfflineCacheEnabled()) {
+            if (isOfflineCacheEnabled() && isOnline()) {
                 cacheNotices(notices);
             }
         }, (error) => {
@@ -137,6 +143,12 @@ export default function NoticesView() {
 
         const q = query(collection(db, 'notice_categories'), orderBy('name'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
+            // Prevent wiping out offline cache if Firebase emits empty offline snapshot
+            if (!isOnline() && snapshot.metadata.fromCache && snapshot.empty) {
+                console.log('[NoticesView] Ignored empty offline snapshot for categories.');
+                return;
+            }
+
             const cats: CategoryData[] = [];
             snapshot.forEach(doc => {
                 cats.push({ id: doc.id, ...doc.data() } as CategoryData);
@@ -144,7 +156,7 @@ export default function NoticesView() {
             setCategories(cats);
 
             // Save to offline cache if enabled
-            if (isOfflineCacheEnabled()) {
+            if (isOfflineCacheEnabled() && isOnline()) {
                 cacheCategories(cats);
             }
         });

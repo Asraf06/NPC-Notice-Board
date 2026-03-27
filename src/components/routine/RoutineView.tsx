@@ -76,10 +76,15 @@ export default function RoutineView() {
                 }
 
                 // Save to offline cache if enabled
-                if (isOfflineCacheEnabled()) {
+                if (isOfflineCacheEnabled() && isOnline()) {
                     cacheRoutine(data, docId);
                 }
             } else {
+                // Prevent wiping out offline cache if Firebase emits empty offline snapshot
+                if (!isOnline() && snap.metadata.fromCache) {
+                    console.log('[RoutineView] Ignored empty offline snapshot to protect local cache.');
+                    return;
+                }
                 setRoutineData(null);
             }
             setLoading(false);
