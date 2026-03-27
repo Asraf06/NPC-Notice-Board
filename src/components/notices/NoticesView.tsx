@@ -7,6 +7,7 @@ import { collection, query, orderBy, onSnapshot, getDocs, getDoc, doc, where } f
 import { useUI } from '@/context/UIContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/context/NotificationContext';
+import { isOfflineCacheEnabled, cacheNotices, cacheCategories, getCachedNotices, getCachedCategories, isOnline } from '@/lib/offlineCache';
 import NoticeCard from './NoticeCard';
 import NoticeModal from './NoticeModal';
 import ImageLightbox from './ImageLightbox';
@@ -83,9 +84,18 @@ export default function NoticesView() {
     // DATA FETCHING
     // ============================================
 
-    // Fetch notices (real-time)
+    // Fetch notices (real-time) with offline cache fallback
     useEffect(() => {
         if (!userProfile) return;
+
+        // If offline and cache is enabled, load from cache immediately
+        if (!isOnline() && isOfflineCacheEnabled()) {
+            const cached = getCachedNotices();
+            if (cached && cached.length > 0) {
+                setAllNotices(cached as NoticeData[]);
+                setNoticesLoaded(true);
+            }
+        }
 
         const q = query(collection(db, 'notices'), orderBy('timestamp', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -95,14 +105,35 @@ export default function NoticesView() {
             });
             setAllNotices(notices);
             setNoticesLoaded(true);
+
+            // Save to offline cache if enabled
+            if (isOfflineCacheEnabled()) {
+                cacheNotices(notices);
+            }
+        }, (error) => {
+            console.warn('[NoticesView] Firestore listener error, trying cache:', error);
+            // On error (likely offline), try cache
+            if (isOfflineCacheEnabled()) {
+                const cached = getCachedNotices();
+                if (cached && cached.length > 0) {
+                    setAllNotices(cached as NoticeData[]);
+                    setNoticesLoaded(true);
+                }
+            }
         });
 
         return () => unsubscribe();
     }, [userProfile]);
 
-    // Fetch categories (real-time)
+    // Fetch categories (real-time) with offline cache fallback
     useEffect(() => {
         if (!userProfile) return;
+
+        // Offline fallback
+        if (!isOnline() && isOfflineCacheEnabled()) {
+            const cached = getCachedCategories();
+            if (cached) setCategories(cached as CategoryData[]);
+        }
 
         const q = query(collection(db, 'notice_categories'), orderBy('name'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -111,6 +142,11 @@ export default function NoticesView() {
                 cats.push({ id: doc.id, ...doc.data() } as CategoryData);
             });
             setCategories(cats);
+
+            // Save to offline cache if enabled
+            if (isOfflineCacheEnabled()) {
+                cacheCategories(cats);
+            }
         });
 
         return () => unsubscribe();

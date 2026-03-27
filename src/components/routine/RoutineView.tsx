@@ -5,6 +5,7 @@ import { Calendar, CalendarOff, MapPin, User, Pencil, RefreshCw } from 'lucide-r
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
+import { isOfflineCacheEnabled, cacheRoutine, getCachedRoutine, isOnline } from '@/lib/offlineCache';
 
 import RoutineEditModal from './RoutineEditModal';
 
@@ -37,6 +38,23 @@ export default function RoutineView() {
             .replace(/\s+/g, '_')
             .toLowerCase();
 
+        // If offline and cache is enabled, load from cache immediately
+        if (!isOnline() && isOfflineCacheEnabled()) {
+            const cached = getCachedRoutine(docId);
+            if (cached) {
+                const data = cached as RoutineData;
+                if (!data.days) data.days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+                if (!data.slots) data.slots = ["09:00 - 10:00", "10:00 - 11:00", "11:20 - 12:20", "12:20 - 01:20", "01:20 - 02:20", "02:20 - 03:20"];
+                setRoutineData(data);
+                const daysMap: Record<number, string> = { 0: 'SUN', 1: 'MON', 2: 'TUE', 3: 'WED', 4: 'THU', 5: 'FRI', 6: 'SAT' };
+                const today = new Date().getDay();
+                const todayName = daysMap[today];
+                if (data.days.includes(todayName)) setActiveDay(todayName);
+                else setActiveDay(data.days[0]);
+                setLoading(false);
+            }
+        }
+
         const unsub = onSnapshot(doc(db, 'routines', docId), (snap) => {
             if (snap.exists()) {
                 const data = snap.data() as RoutineData;
@@ -56,12 +74,24 @@ export default function RoutineView() {
                         setActiveDay(data.days[0]);
                     }
                 }
+
+                // Save to offline cache if enabled
+                if (isOfflineCacheEnabled()) {
+                    cacheRoutine(data, docId);
+                }
             } else {
                 setRoutineData(null);
             }
             setLoading(false);
         }, (err) => {
             console.error("Routine fetch failed:", err);
+            // On error (likely offline), try cache
+            if (isOfflineCacheEnabled()) {
+                const cached = getCachedRoutine(docId);
+                if (cached) {
+                    setRoutineData(cached as RoutineData);
+                }
+            }
             setLoading(false);
         });
 
