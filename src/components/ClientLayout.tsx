@@ -10,6 +10,7 @@ import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 import InstallPrompt from '@/components/InstallPrompt';
 import SectionMigrationScreen from '@/components/SectionMigrationScreen';
+import OfflineBanner from '@/components/OfflineBanner';
 
 import { usePathname } from 'next/navigation';
 
@@ -32,6 +33,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex-1 flex flex-col h-[100dvh] overflow-hidden bg-white dark:bg-black">
+            <OfflineBanner />
             <Header />
 
             {/* Main Layout Shell — Fixed container since individual views handle scrolling */}

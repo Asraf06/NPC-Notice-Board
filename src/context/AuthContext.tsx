@@ -20,7 +20,7 @@ import {
     signInWithCredential,
 } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import { doc, onSnapshot, getDoc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc, getDocFromCache, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, onValue, onDisconnect, set, serverTimestamp as rtdbServerTimestamp, off } from 'firebase/database';
 import { auth, db, googleProvider, rtdb } from '@/lib/firebase';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -126,32 +126,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // ============================================
     // OFFLINE AUTH BYPASS (Native APK only)
     // If the app is offline and offline caching is enabled,
-    // skip Firebase auth and use cached profile data.
+    // skip Firebase auth entirely and use cached profile.
     // ============================================
     const offlineBypassApplied = useRef(false);
 
-    useEffect(() => {
-        // Only applies on native platform with offline cache enabled
-        if (!Capacitor.isNativePlatform() || !isOfflineCacheEnabled()) return;
-
-        const timer = setTimeout(() => {
-            // If we're still stuck on 'loading' and we're offline, try cache
-            if (authStep === 'loading' && !isOnline() && !offlineBypassApplied.current) {
-                const cachedProfile = getCachedUserProfile();
-                if (cachedProfile) {
-                    console.log('[OfflineAuth] Bypassing auth with cached profile');
-                    offlineBypassApplied.current = true;
-                    setUserProfile(cachedProfile as UserProfile);
-                    setAuthStep('authenticated');
-                }
-            }
-        }, 3000); // 3 second grace period for Firebase to resolve
-
-        return () => clearTimeout(timer);
-    }, [authStep]);
-
     // Auth state listener
     useEffect(() => {
+        // ── IMMEDIATE OFFLINE BYPASS ──
+        // If native + offline + cache enabled + cached profile: skip Firebase entirely
+        if (Capacitor.isNativePlatform() && !isOnline() && isOfflineCacheEnabled()) {
+            const cachedProfile = getCachedUserProfile();
+            if (cachedProfile && !offlineBypassApplied.current) {
+                console.log('[OfflineAuth] Immediate bypass — using cached profile');
+                offlineBypassApplied.current = true;
+                setUserProfile(cachedProfile as UserProfile);
+                setAuthStep('authenticated');
+                return; // Don't set up Firebase listeners at all
+            }
+        }
+
         const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
                 setUser(firebaseUser);
@@ -170,16 +163,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
                         // Check if profile is missing or incomplete
                         if (!userData || !userData.name || !userData.roll) {
-                            // Check if teacher account
-                            if (!docSnap.exists()) {
-                                const teacherDoc = await getDoc(doc(db, 'teachers', firebaseUser.uid));
-                                if (teacherDoc.exists()) {
-                                    setAuthStep('profile');
+                            // If offline + native, try cached profile instead of hanging on getDoc
+                            if (Capacitor.isNativePlatform() && !isOnline() && isOfflineCacheEnabled()) {
+                                const cachedProfile = getCachedUserProfile();
+                                if (cachedProfile) {
+                                    console.log('[OfflineAuth] Profile incomplete from cache, using saved profile');
+                                    setUserProfile(cachedProfile as UserProfile);
+                                    setAuthStep('authenticated');
                                     return;
                                 }
                             }
+                            // Check if teacher account
+                            if (!docSnap.exists()) {
+                                try {
+                                    const teacherDoc = await getDoc(doc(db, 'teachers', firebaseUser.uid));
+                                    if (teacherDoc.exists()) {
+                                        setAuthStep('profile');
+                                        return;
+                                    }
+                                } catch (e) { console.warn('Teacher check failed:', e); }
+                            }
                             setAuthStep('profile');
                             return;
+                        }
+
+                        // ── Cache profile IMMEDIATELY for offline use (before any getDoc calls) ──
+                        if (Capacitor.isNativePlatform()) {
+                            cacheUserProfile(userData);
                         }
 
                         // Check blocked/forceLogout
@@ -194,46 +204,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         }
 
                         // Check Website Login Access (Department/Semester)
-                        try {
-                            const acDoc = await getDoc(doc(db, 'access_control', 'website_access'));
-                            if (acDoc.exists()) {
-                                const acData = acDoc.data();
-                                const deptAccess = acData.departments?.[userData.dept]?.[userData.sem];
-                                if (!deptAccess || !deptAccess.login) {
-                                    setAuthError(`Notice: Login access is currently restricted for ${userData.dept} ${userData.sem}. Please wait for your timeline.`);
-                                    await signOut(auth);
-                                    return;
+                        // Skip entirely when offline to avoid hanging
+                        if (isOnline()) {
+                            try {
+                                const acDoc = await getDoc(doc(db, 'access_control', 'website_access'));
+                                if (acDoc.exists()) {
+                                    const acData = acDoc.data();
+                                    const deptAccess = acData.departments?.[userData.dept]?.[userData.sem];
+                                    if (!deptAccess || !deptAccess.login) {
+                                        setAuthError(`Notice: Login access is currently restricted for ${userData.dept} ${userData.sem}. Please wait for your timeline.`);
+                                        await signOut(auth);
+                                        return;
+                                    }
                                 }
-                            }
-                        } catch (e) { console.error("Access control check failed", e) }
+                            } catch (e) { console.error("Access control check failed", e) }
+                        }
 
                         setUserProfile(userData);
                         setAuthStep('authenticated');
 
-                        // Cache profile for offline use (native only)
-                        if (Capacitor.isNativePlatform()) {
-                            cacheUserProfile(userData);
-                        }
+                        // --- START PRESENCE SYSTEM (only when online) ---
+                        if (isOnline()) {
+                            const userStatusRef = ref(rtdb, `status/${firebaseUser.uid}`);
+                            const connectedRef = ref(rtdb, '.info/connected');
 
-                        // --- START PRESENCE SYSTEM ---
-                        const userStatusRef = ref(rtdb, `status/${firebaseUser.uid}`);
-                        const connectedRef = ref(rtdb, '.info/connected');
+                            off(connectedRef);
 
-                        off(connectedRef);
-
-                        onValue(connectedRef, (snap) => {
-                            if (snap.val() === true) {
-                                onDisconnect(userStatusRef).set({
-                                    state: 'offline',
-                                    last_changed: rtdbServerTimestamp()
-                                }).then(() => {
-                                    set(userStatusRef, {
-                                        state: 'online',
+                            onValue(connectedRef, (snap) => {
+                                if (snap.val() === true) {
+                                    onDisconnect(userStatusRef).set({
+                                        state: 'offline',
                                         last_changed: rtdbServerTimestamp()
+                                    }).then(() => {
+                                        set(userStatusRef, {
+                                            state: 'online',
+                                            last_changed: rtdbServerTimestamp()
+                                        });
                                     });
-                                });
-                            }
-                        });
+                                }
+                            });
+                        }
                         // --- END PRESENCE SYSTEM ---
 
                     },
