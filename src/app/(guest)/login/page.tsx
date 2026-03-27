@@ -9,10 +9,10 @@ export default function LoginPage() {
     const router = useRouter();
 
     useEffect(() => {
-        if (authStep === 'authenticated' && user) {
+        if (authStep === 'authenticated') {
             router.push('/notices');
         }
-    }, [authStep, user, router]);
+    }, [authStep, router]);
 
     return (
         <div className="w-full h-[100dvh] bg-black dark:bg-black relative">

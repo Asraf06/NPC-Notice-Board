@@ -44,17 +44,17 @@ export default function LandingPage() {
     if (isClient) {
       if (isPWA) {
         // PWA user: always skip landing page
-        if (authStep === 'authenticated' && user) {
+        if (authStep === 'authenticated') {
           router.push('/notices');
         } else {
           router.push('/login');
         }
-      } else if (authStep === 'authenticated' && user) {
+      } else if (authStep === 'authenticated') {
         // Browser user: only skip if logged in
         router.push('/notices');
       }
     }
-  }, [isClient, isPWA, authStep, user, router]);
+  }, [isClient, isPWA, authStep, router]);
 
   useEffect(() => {
     // Only init locomotive scroll if we haven't redirected and DOM is ready
