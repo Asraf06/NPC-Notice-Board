@@ -5,13 +5,14 @@ import { Sun, Moon, Bell, Info, Download, Check, Smartphone } from 'lucide-react
 import { useNotifications } from '@/context/NotificationContext';
 import { usePwaInstall } from '@/context/PwaInstallContext';
 import { useNativeApp } from '@/hooks/useNativeApp';
-
+import { useAuth } from '@/context/AuthContext';
 import { useState } from 'react';
 
 export default function SettingsView() {
     const { theme, toggleTheme } = useTheme();
     const { permissionStatus, requestPermission } = useNotifications();
     const { isInstallable, isInstalled, triggerInstall } = usePwaInstall();
+    const { userProfile, updateUserProfile } = useAuth();
     const isNativeApp = useNativeApp();
     const [showDeniedGuide, setShowDeniedGuide] = useState(false);
 
@@ -163,6 +164,36 @@ export default function SettingsView() {
                                 </span>
                             )}
                         </div>
+
+                        {/* Notice Sound selection area natively */}
+                        {isNativeApp && permissionStatus === 'granted' && (
+                            <div className="mt-6 pt-5 border-t border-gray-200 dark:border-zinc-800 flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-zinc-900 shrink-0">
+                                        <Bell className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-sm uppercase">Alternate Ringtone</p>
+                                        <p className="text-xs opacity-50">Use alternate notification channel</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        const newValue = userProfile?.noticeSound === 'notice_alternate' ? 'notice_default' : 'notice_alternate';
+                                        updateUserProfile({ noticeSound: newValue });
+                                    }}
+                                    className={`relative w-14 h-7 rounded-full transition-colors duration-300 ${
+                                        userProfile?.noticeSound === 'notice_alternate' ? 'bg-purple-600' : 'bg-gray-300'
+                                    }`}
+                                >
+                                    <div
+                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-300 ${
+                                            userProfile?.noticeSound === 'notice_alternate' ? 'translate-x-[30px]' : 'translate-x-[4px]'
+                                        }`}
+                                    />
+                                </button>
+                            </div>
+                        )}
 
                         {showDeniedGuide && permissionStatus === 'denied' && (
                             <div className="mt-6 p-4 border-2 border-red-500/30 bg-red-50 dark:bg-red-950/20">
