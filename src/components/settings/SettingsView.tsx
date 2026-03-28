@@ -7,7 +7,7 @@ import { usePwaInstall } from '@/context/PwaInstallContext';
 import { useNativeApp } from '@/hooks/useNativeApp';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect, useCallback } from 'react';
-import { isOfflineCacheEnabled, setOfflineCacheEnabled, getOfflineCacheSize, clearOfflineCache, getLastSyncTime } from '@/lib/offlineCache';
+import { isOfflineCacheEnabled, setOfflineCacheEnabled, getOfflineCacheSize, clearOfflineCache, getLastSyncTime, cacheUserProfile } from '@/lib/offlineCache';
 
 export default function SettingsView() {
     const { theme, toggleTheme } = useTheme();
@@ -50,10 +50,11 @@ export default function SettingsView() {
 
     const confirmEnableOffline = useCallback(() => {
         setOfflineCacheEnabled(true);
+        if (userProfile) cacheUserProfile(userProfile);
         setOfflineEnabled(true);
         setShowCacheWarning(false);
         refreshCacheInfo();
-    }, [refreshCacheInfo]);
+    }, [refreshCacheInfo, userProfile]);
 
     const handleClearCache = useCallback(() => {
         clearOfflineCache();
