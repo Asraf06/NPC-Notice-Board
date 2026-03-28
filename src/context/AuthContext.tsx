@@ -24,7 +24,7 @@ import { doc, onSnapshot, getDoc, getDocFromCache, setDoc, serverTimestamp, coll
 import { ref, onValue, onDisconnect, set, serverTimestamp as rtdbServerTimestamp, off } from 'firebase/database';
 import { auth, db, googleProvider, rtdb } from '@/lib/firebase';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { isOfflineCacheEnabled, isOnline, getCachedUserProfile, cacheUserProfile } from '@/lib/offlineCache';
+import { isOfflineCacheEnabled, isOnline, getCachedUserProfile, cacheUserProfile, clearOfflineCache, setOfflineCacheEnabled } from '@/lib/offlineCache';
 
 // Types
 export interface UserProfile {
@@ -513,9 +513,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userAllowed = userProfile?.allowLogout === true;
         if (globalAllowed || userAllowed) {
             try {
+                // Wipe offline cache absolutely first to prevent lingering login
+                if (typeof window !== 'undefined') {
+                    setOfflineCacheEnabled(false);
+                    clearOfflineCache();
+                }
+                offlineBypassApplied.current = false;
+                setUserProfile(null);
+                setAuthStep('login');
+
                 // Wrap in thorough try/catch as native bridges can sometimes throw uncatchable Promise rejections
                 // If it crashes because it wasn't initialized, we catch it securely
-                if (Capacitor.isNativePlatform()) {
+                if (Capacitor.isNativePlatform() && isOnline()) {
                     try {
                         await GoogleAuth.initialize({
                             clientId: '529840057304-obbs5438idptq2qqlmor0ormdq2lf21f.apps.googleusercontent.com',
@@ -525,9 +534,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         console.warn('Native Google SignOut skipped:', err);
                     }
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.error('Offline cache clear or native Google Signout error:', e);
+            }
             
-            await signOut(auth);
+            try {
+                await signOut(auth);
+            } catch (authErr) {
+                console.warn('Firebase signout skipped:', authErr);
+            }
+
             if (router) {
                 router.push('/login');
             }
