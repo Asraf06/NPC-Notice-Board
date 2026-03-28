@@ -36,7 +36,7 @@ export default function RoutineEditModal({ isOpen, onClose, initialData, onSaved
     const { showAlert, showToast } = useUI();
     const [localData, setLocalData] = useState<RoutineData>({
         days: initialData?.days || ['SUN', 'MON', 'TUE', 'WED', 'THU'],
-        slots: initialData?.slots || ["09:00 - 10:00", "10:00 - 11:00", "11:20 - 12:20", "12:20 - 01:20", "01:20 - 02:20", "02:20 - 03:20"],
+        slots: initialData?.slots || ["09:00 - 09:45", "09:45 - 10:30", "10:30 - 11:15", "11:15 - 12:00", "12:00 - 12:45", "12:45 - 01:30", "01:30 - 02:15"],
         schedule: initialData?.schedule || {}
     });
 
