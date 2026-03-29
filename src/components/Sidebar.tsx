@@ -11,10 +11,12 @@ import {
     LogOut,
     Clipboard,
     Download,
+    ClipboardCheck,
 } from 'lucide-react';
 
-const sidebarItems = [
+const baseSidebarItems = [
     { id: '/notices', label: 'Notices', icon: LayoutGrid },
+    { id: '/attendance', label: 'Attendance', icon: ClipboardCheck },
     { id: '/profile', label: 'Profile', icon: User },
     { id: '/install', label: 'Install App', icon: Download },
     { id: '/settings', label: 'Settings', icon: Settings },
@@ -23,6 +25,8 @@ const sidebarItems = [
 export default function Sidebar() {
     const { userProfile, globalSettings, logout } = useAuth();
     const pathname = usePathname();
+
+    const sidebarItems = baseSidebarItems;
 
     const showLogout = globalSettings.allowLogout || userProfile?.allowLogout;
     const imgUrl = userProfile?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userProfile?.name || 'S')}`;

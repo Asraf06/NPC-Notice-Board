@@ -20,6 +20,7 @@ import {
     MessageSquare,
     Clipboard,
     Download,
+    ClipboardCheck,
 } from 'lucide-react';
 
 interface SidePanelProps {
@@ -27,8 +28,9 @@ interface SidePanelProps {
     onClose: () => void;
 }
 
-const menuItems = [
+const baseMenuItems = [
     { id: '/notices', label: 'Notices', icon: LayoutGrid },
+    { id: '/attendance', label: 'Attendance', icon: ClipboardCheck },
     { id: '/profile', label: 'Profile', icon: User },
     { id: '/install', label: 'Install App', icon: Download },
     { id: '/settings', label: 'Settings', icon: Settings },
@@ -38,6 +40,8 @@ export default function SidePanel({ isOpen, onClose }: SidePanelProps) {
     const { userProfile, globalSettings, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
     const pathname = usePathname();
+
+    const menuItems = baseMenuItems;
 
     const showLogout = globalSettings.allowLogout || userProfile?.allowLogout;
     const imgUrl = userProfile?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userProfile?.name || 'S')}`;

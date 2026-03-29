@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Search, ArrowUp, Plus, Settings2, Pin, PinOff, Users, Image as ImageIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, ArrowUp, Plus, Settings2, Pin, PinOff, Users, Image as ImageIcon, ClipboardCheck, QrCode } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, getDocs, getDoc, doc, where } from 'firebase/firestore';
 import { useUI } from '@/context/UIContext';
@@ -19,6 +20,7 @@ import { secureUploadFile } from '@/lib/uploadService';
 import SubjectDropdown from './SubjectDropdown';
 import CRDashboardModal from '../admin/CRDashboardModal';
 import ManageBoardRollsModal from '../admin/ManageBoardRollsModal';
+import AttendanceQRModal from '../admin/AttendanceQRModal';
 import { getDatabase, ref as rtdbRef, update, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
 import type { NoticeData } from './NoticeCard';
 
@@ -48,6 +50,7 @@ export default function NoticesView() {
     const { userProfile, user } = useAuth();
     const { showAlert, showToast } = useUI();
     const { markAsViewed } = useNotifications();
+    const router = useRouter();
 
     // Data state
     const [allNotices, setAllNotices] = useState<NoticeData[]>([]);
@@ -70,6 +73,7 @@ export default function NoticesView() {
     const [editNotice, setEditNotice] = useState<NoticeData | null>(null);
     const [showManageModal, setShowManageModal] = useState(false);
     const [showRollsModal, setShowRollsModal] = useState(false);
+    const [showQRModal, setShowQRModal] = useState(false);
     const [pinnedTools, setPinnedTools] = useState<string[]>([]);
 
     // Lightbox state
@@ -311,11 +315,23 @@ export default function NoticesView() {
                 action: () => setShowCreateModal(true),
                 desc: 'Post Notice'
             },
+            'manage_attendance': {
+                icon: <ClipboardCheck className="w-5 h-5 text-white" />,
+                bg: 'bg-emerald-600 hover:bg-emerald-700',
+                action: () => router.push('/attendance-manager'),
+                desc: 'Manage Attendance'
+            },
             'manage_rolls': {
                 icon: <Users className="w-5 h-5 text-white dark:text-black" />,
                 bg: 'bg-black dark:bg-white text-white dark:text-black hover:opacity-80',
                 action: () => setShowRollsModal(true),
                 desc: 'Board Rolls'
+            },
+            'show_qr': {
+                icon: <QrCode className="w-5 h-5 text-black" />,
+                bg: 'bg-yellow-400 hover:bg-yellow-500',
+                action: () => setShowQRModal(true),
+                desc: 'Show QR'
             },
             'manage_icon': {
                 icon: <ImageIcon className="w-5 h-5 text-white" />,
@@ -324,7 +340,8 @@ export default function NoticesView() {
                 desc: 'Group Icon'
             }
         };
-    }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [router]);
 
     // ============================================
     // FILTERING LOGIC (matches HTML renderNotices)
@@ -707,7 +724,7 @@ export default function NoticesView() {
 
             {/* PINNED TOOLS CONTAINER */}
             {pinnedTools.length > 0 && !selectedNotice && !shareNotice && !deleteNoticeId && !showCreateModal && !editNotice && !showManageModal && (
-                <div className="fixed bottom-32 md:bottom-24 right-6 z-50 flex flex-col gap-3 items-end pointer-events-none">
+                <div className="fixed bottom-36 md:bottom-24 right-4 md:right-6 z-50 flex flex-col gap-2 md:gap-3 items-end pointer-events-none">
                     {pinnedTools.map(tid => {
                         const config = (pinnedToolConfigs as any)[tid];
                         if (!config) return null;
@@ -715,7 +732,7 @@ export default function NoticesView() {
                             <button
                                 key={tid}
                                 onClick={config.action}
-                                className={`${config.bg} w-14 h-14 rounded-full shadow-lg hover:shadow-xl transition-all pointer-events-auto hover:-translate-y-1 flex items-center justify-center group border-2 border-black dark:border-white relative`}
+                                className={`${config.bg} w-10 h-10 md:w-14 md:h-14 rounded-full shadow-lg hover:shadow-xl transition-all pointer-events-auto hover:-translate-y-1 flex items-center justify-center group border-2 border-black dark:border-white relative [&_svg]:w-4 [&_svg]:h-4 md:[&_svg]:w-5 md:[&_svg]:h-5`}
                                 title={config.desc}
                             >
                                 <span className="absolute right-full mr-3 px-2 py-1 bg-black text-white text-[10px] font-bold uppercase rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none border border-white/20 shadow-lg">
@@ -737,6 +754,9 @@ export default function NoticesView() {
                 accept="image/*"
                 onChange={handleGroupIconUpload}
             />
+
+            {/* Attendance QR Modal */}
+            <AttendanceQRModal isOpen={showQRModal} onClose={() => setShowQRModal(false)} />
         </>
     );
 }

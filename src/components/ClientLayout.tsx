@@ -11,11 +11,12 @@ import BottomNav from '@/components/BottomNav';
 import InstallPrompt from '@/components/InstallPrompt';
 import SectionMigrationScreen from '@/components/SectionMigrationScreen';
 import OfflineBanner from '@/components/OfflineBanner';
+import AttendanceFAB from '@/components/attendance/AttendanceFAB';
 
 import { usePathname } from 'next/navigation';
 
 // Routes where bottom nav should be hidden (utility/detail pages)
-const HIDE_NAV_ROUTES = ['/profile', '/settings', '/install'];
+const HIDE_NAV_ROUTES = ['/profile', '/settings', '/install', '/attendance'];
 
 function AuthenticatedShell({ children }: { children: React.ReactNode }) {
     const { authStep, userProfile } = useAuth();
@@ -45,6 +46,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
 
             {!hideBottomNav && <BottomNav />}
             {!hideBottomNav && <InstallPrompt />}
+            <AttendanceFAB />
         </div>
     );
 }

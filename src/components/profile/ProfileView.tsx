@@ -7,6 +7,7 @@ import { Shield, Mail, Hash, Building2, BookOpen, Users, Camera, Trash2, Edit2, 
 import { secureUploadWithProgress, deleteUploadedFiles } from '@/lib/uploadService';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '@/lib/cropImage';
+import ProfileAttendanceStats from './ProfileAttendanceStats';
 
 export default function ProfileView() {
     const { user, userProfile, updateUserProfile } = useAuth();
@@ -388,6 +389,9 @@ export default function ProfileView() {
                         </div>
                     </div>
                 </div>
+
+                {/* Attendance Stats — Quick Summary (above account info for visibility) */}
+                <ProfileAttendanceStats />
 
                 {/* Info Grid */}
                 <div className="border-2 border-black dark:border-zinc-800 bg-white dark:bg-black mb-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.05)]">
