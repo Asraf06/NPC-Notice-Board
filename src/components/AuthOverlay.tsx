@@ -66,6 +66,7 @@ export default function AuthOverlay() {
     const [profileBio, setProfileBio] = useState('');
     const [profilePassword, setProfilePassword] = useState('');
     const [showPasswordSetup, setShowPasswordSetup] = useState(false);
+    const [showProfilePassword, setShowProfilePassword] = useState(false);
     const [profileLoading, setProfileLoading] = useState(false);
 
     const profilePasswordRules = validatePassword(profilePassword);
@@ -495,14 +496,23 @@ export default function AuthOverlay() {
                                 {showPasswordSetup && (
                                     <div>
                                         <label className="block text-xs uppercase font-bold mb-1">Set Account Password</label>
-                                        <input
-                                            type="password"
-                                            value={profilePassword}
-                                            onChange={e => setProfilePassword(e.target.value)}
-                                            required
-                                            placeholder="Create a strong password"
-                                            className="w-full bg-transparent border-b-2 border-gray-300 focus:border-black dark:focus:border-white outline-none py-2 rounded-none font-mono"
-                                        />
+                                        <div className="relative">
+                                            <input
+                                                type={showProfilePassword ? "text" : "password"}
+                                                value={profilePassword}
+                                                onChange={e => setProfilePassword(e.target.value)}
+                                                required
+                                                placeholder="Create a strong password"
+                                                className="w-full pr-10 bg-transparent border-b-2 border-gray-300 focus:border-black dark:focus:border-white outline-none py-2 rounded-none font-mono"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowProfilePassword(!showProfilePassword)}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black dark:hover:text-white"
+                                            >
+                                                {showProfilePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
                                         
                                         {profilePassword.length > 0 && (
                                             <div className="grid grid-cols-2 gap-2 text-[10px] uppercase font-bold bg-gray-50 dark:bg-zinc-900 border-2 border-black dark:border-zinc-700 p-3 mt-3">
