@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Loader2 } from 'lucide-react';
+import CustomSelect from '@/components/CustomSelect';
 
 /**
  * SectionMigrationScreen
@@ -49,15 +50,13 @@ export default function SectionMigrationScreen() {
                     <label className="block text-xs uppercase font-bold mb-2 text-black dark:text-white">
                         Your Batch
                     </label>
-                    <select
+                    <CustomSelect
                         value={section}
-                        onChange={e => setSection(e.target.value)}
+                        onChange={setSection}
+                        options={sections.map(s => ({ value: s, label: s }))}
+                        placeholder="Select Batch"
                         className="w-full bg-transparent border-2 border-black dark:border-zinc-700 p-3 rounded-none outline-none text-lg font-mono font-bold dark:bg-black text-black dark:text-white"
-                    >
-                        {sections.map(s => (
-                            <option key={s} value={s}>{s}</option>
-                        ))}
-                    </select>
+                    />
                 </div>
 
                 {/* Confirm Button */}

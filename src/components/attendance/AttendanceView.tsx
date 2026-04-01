@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, setDoc, getDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 import { ClipboardCheck, Calendar, Search, Save, AlertCircle, CheckCircle2, History, Clock, Users, UserCheck, UserX, Timer, Settings2, Layers } from 'lucide-react';
 import PeriodGroupConfig, { PeriodGroupsConfig, PeriodGroup } from './PeriodGroupConfig';
+import CustomSelect from '@/components/CustomSelect';
 
 interface StudentListRecord {
     id: string;
@@ -608,21 +609,13 @@ export default function AttendanceView() {
                         <div className="flex flex-col items-start gap-1 w-full md:w-auto">
                             <span className="text-[10px] font-black font-mono uppercase tracking-wider text-black/60">Select Period / Subject</span>
                             <div className="flex items-center gap-2 w-full">
-                                <select 
+                                <CustomSelect 
                                     className="w-full md:w-[280px] px-3 py-2 border-2 border-black bg-white text-black font-mono text-sm font-bold shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] transition-shadow focus:outline-none appearance-none"
                                     value={selectedPeriod}
-                                    onChange={(e) => setSelectedPeriod(e.target.value)}
-                                >
-                                    {resolvedPeriods.length === 0 ? (
-                                        <option value="">No Classes Scheduled</option>
-                                    ) : (
-                                        resolvedPeriods.map(rp => (
-                                            <option key={rp.key} value={rp.key}>
-                                                {rp.isGroup ? `🔗 ${rp.displayLabel}` : rp.displayLabel}
-                                            </option>
-                                        ))
-                                    )}
-                                </select>
+                                    onChange={setSelectedPeriod}
+                                    options={resolvedPeriods.length === 0 ? [{ value: '', label: 'No Classes Scheduled' }] : resolvedPeriods.map(rp => ({ value: rp.key, label: rp.isGroup ? `🔗 ${rp.displayLabel}` : rp.displayLabel }))}
+                                    placeholder="Select Period"
+                                />
                                 <button
                                     onClick={() => setShowGroupConfig(true)}
                                     className="p-2 border-2 border-black bg-indigo-100 text-indigo-800 shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-[1px_1px_0px_rgba(0,0,0,1)] transition-all active:shadow-none active:translate-y-[2px] active:translate-x-[2px]"

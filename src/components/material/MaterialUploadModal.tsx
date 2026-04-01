@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useUI } from '@/context/UIContext';
 import { secureUploadWithProgress } from '@/lib/uploadService';
 import { useSmoothScroll } from '@/hooks/useSmoothScroll';
+import CustomSelect from '@/components/CustomSelect';
 
 interface MaterialUploadModalProps {
     isOpen: boolean;
@@ -191,15 +192,17 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded }: Mat
                             <label className="block text-[10px] font-bold uppercase mb-1 opacity-60 tracking-wider">
                                 Resource Category
                             </label>
-                            <select
+                            <CustomSelect
                                 value={materialType}
-                                onChange={(e) => setMaterialType(e.target.value)}
+                                onChange={setMaterialType}
+                                options={[
+                                    { value: 'Syllabus', label: 'Official Syllabus' },
+                                    { value: 'Note', label: 'Lecture Notes' },
+                                    { value: 'Question', label: 'Question Papers' }
+                                ]}
+                                placeholder="Select Type"
                                 className="w-full p-3 border-2 border-black dark:border-white bg-white dark:bg-black font-mono text-sm outline-none"
-                            >
-                                <option value="Syllabus">Official Syllabus</option>
-                                <option value="Note">Lecture Notes</option>
-                                <option value="Question">Question Papers</option>
-                            </select>
+                            />
                         </div>
 
                         {/* Subject Title */}

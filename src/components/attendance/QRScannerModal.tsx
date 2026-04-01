@@ -72,7 +72,7 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
         return true;
     };
 
-    const initScanner = async () => {
+    const initScanner = async (checkCancelled: () => boolean) => {
         // Prevent overlapping starts
         if (isStartingRef.current) return;
         isStartingRef.current = true;
@@ -82,10 +82,10 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
         setStatusText("Requesting camera access...");
         
         try {
+            if (checkCancelled()) return;
             const hasPermission = await requestCameraPermission();
-            if (!hasPermission) {
+            if (!hasPermission || checkCancelled()) {
                 setScanning(false);
-                isStartingRef.current = false;
                 return;
             }
 
@@ -94,6 +94,7 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
             }
 
             await stopScannerSafe();
+            if (checkCancelled()) return;
 
             await scannerRef.current.start(
                 { facingMode: "environment" },
@@ -112,11 +113,18 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
                     // Ignore common parse errors silently
                 }
             );
+            
+            if (checkCancelled()) {
+                 await stopScannerSafe();
+                 return;
+            }
             setStatusText("Point camera at class QR code");
         } catch (err: any) {
-            console.error("html5-qrcode start failed:", err);
-            setError("Cannot access camera. Please check permissions.");
-            setScanning(false);
+            if (!checkCancelled()) {
+                console.error("html5-qrcode start failed:", err);
+                setError("Cannot access camera. Please check permissions.");
+                setScanning(false);
+            }
         } finally {
             isStartingRef.current = false;
         }
@@ -124,18 +132,23 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
 
     useEffect(() => {
         let timeoutId: NodeJS.Timeout;
+        let isCancelled = false;
 
         if (isOpen) {
             setScannedData(null);
             setError(null);
             // Delay start so animations and #reader can mount
-            timeoutId = setTimeout(initScanner, 350); 
+            timeoutId = setTimeout(() => {
+                if (!isCancelled) initScanner(() => isCancelled);
+            }, 350); 
         } else {
+            isCancelled = true;
             // Component is closing, gracefully stop if running
-            stopScannerSafe();
+            setTimeout(stopScannerSafe, 500); // Give start time to finish if it just fired
         }
         
         return () => {
+            isCancelled = true;
             clearTimeout(timeoutId);
         };
     }, [isOpen]);
@@ -164,7 +177,7 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
     const handleRetry = () => {
         setScannedData(null);
         setError(null);
-        initScanner();
+        initScanner(() => false);
     };
 
     if (!mounted) return null;

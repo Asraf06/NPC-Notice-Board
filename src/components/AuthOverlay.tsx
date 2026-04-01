@@ -7,6 +7,7 @@ import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { LogIn, MailCheck, AlertCircle, Lock, Mail, User, CheckCircle2, ArrowRight, Loader2, X, Eye, EyeOff } from 'lucide-react';
 import { parseFirebaseError } from '@/lib/errorParser';
+import CustomSelect from './CustomSelect';
 
 const validatePassword = (pass: string) => {
     return {
@@ -555,15 +556,13 @@ export default function AuthOverlay() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs uppercase font-bold mb-1">Department</label>
-                                        <select
+                                        <CustomSelect
                                             value={profileDept}
-                                            onChange={e => setProfileDept(e.target.value)}
+                                            onChange={setProfileDept}
+                                            options={departments.map(d => ({ value: d, label: d }))}
+                                            placeholder="Select Dept"
                                             className="w-full bg-transparent border-2 border-black dark:border-zinc-700 p-2 rounded-none outline-none dark:bg-black"
-                                        >
-                                            {departments.map(d => (
-                                                <option key={d} value={d}>{d}</option>
-                                            ))}
-                                        </select>
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-xs uppercase font-bold mb-1">Board Roll</label>
@@ -577,27 +576,23 @@ export default function AuthOverlay() {
                                     </div>
                                     <div>
                                         <label className="block text-xs uppercase font-bold mb-1">Semester</label>
-                                        <select
+                                        <CustomSelect
                                             value={profileSem}
-                                            onChange={e => setProfileSem(e.target.value)}
+                                            onChange={setProfileSem}
+                                            options={semesters.map(s => ({ value: s, label: s }))}
+                                            placeholder="Select Sem"
                                             className="w-full bg-transparent border-2 border-black dark:border-zinc-700 p-2 rounded-none outline-none dark:bg-black"
-                                        >
-                                            {semesters.map(s => (
-                                                <option key={s} value={s}>{s}</option>
-                                            ))}
-                                        </select>
+                                        />
                                     </div>
                                     <div>
                                         <label className="block text-xs uppercase font-bold mb-1">Batch</label>
-                                        <select
+                                        <CustomSelect
                                             value={profileSection}
-                                            onChange={e => setProfileSection(e.target.value)}
+                                            onChange={setProfileSection}
+                                            options={sections.map(s => ({ value: s, label: s }))}
+                                            placeholder="Select Batch"
                                             className="w-full bg-transparent border-2 border-black dark:border-zinc-700 p-2 rounded-none outline-none dark:bg-black"
-                                        >
-                                            {sections.map(s => (
-                                                <option key={s} value={s}>{s}</option>
-                                            ))}
-                                        </select>
+                                        />
                                     </div>
                                     <div className="col-span-2">
                                         <label className="block text-xs uppercase font-bold mb-1">Bio (Optional)</label>

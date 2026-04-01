@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { useUI } from '@/context/UIContext';
+import CustomSelect from '@/components/CustomSelect';
 import type { NoticeData } from './NoticeCard';
 
 interface EditNoticeModalProps {
@@ -164,28 +165,38 @@ export default function EditNoticeModal({ notice, onClose }: EditNoticeModalProp
                         <div className="grid grid-cols-3 gap-2">
                             <div>
                                 <label className="block text-[10px] font-bold uppercase mb-1 opacity-70">Category</label>
-                                <select value={category} onChange={e => setCategory(e.target.value)}
-                                    className="w-full p-2 border-2 border-black dark:border-white bg-white dark:bg-black font-mono text-sm outline-none">
-                                    {categories.map(c => <option key={c.value} value={c.value}>{c.name}</option>)}
-                                </select>
+                                <CustomSelect
+                                    value={category}
+                                    onChange={setCategory}
+                                    options={categories.map(c => ({ value: c.value, label: c.name }))}
+                                    placeholder="Category"
+                                    className="w-full p-2 border-2 border-black dark:border-white bg-white dark:bg-black font-mono text-xs outline-none"
+                                />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold uppercase mb-1 opacity-70">Subject (Optional)</label>
-                                <select value={subject} onChange={e => setSubject(e.target.value)}
-                                    className="w-full p-2 border-2 border-black dark:border-white bg-white dark:bg-black font-mono text-sm outline-none">
-                                    <option value="">-- None --</option>
-                                    {subjects.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                                </select>
+                                <CustomSelect
+                                    value={subject}
+                                    onChange={setSubject}
+                                    options={[{ value: '', label: '-- None --' }, ...subjects.map(s => ({ value: s.value, label: s.label }))]}
+                                    placeholder="Subject"
+                                    className="w-full p-2 border-2 border-black dark:border-white bg-white dark:bg-black font-mono text-xs outline-none"
+                                />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold uppercase mb-1 opacity-70">Layout</label>
-                                <select value={layout} onChange={e => setLayout(e.target.value)}
-                                    className="w-full p-2 border-2 border-black dark:border-white bg-white dark:bg-black font-mono text-sm outline-none">
-                                    <option value="text">Text Only</option>
-                                    <option value="grid">Image Grid</option>
-                                    <option value="slider">Image Slider</option>
-                                    <option value="video_feed">Video Feed</option>
-                                </select>
+                                <CustomSelect
+                                    value={layout}
+                                    onChange={setLayout}
+                                    options={[
+                                        { value: 'text', label: 'Text Only' },
+                                        { value: 'grid', label: 'Image Grid' },
+                                        { value: 'slider', label: 'Image Slider' },
+                                        { value: 'video_feed', label: 'Video Feed' }
+                                    ]}
+                                    placeholder="Layout"
+                                    className="w-full p-2 border-2 border-black dark:border-white bg-white dark:bg-black font-mono text-xs outline-none"
+                                />
                             </div>
                         </div>
 
