@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useUI } from '@/context/UIContext';
 import { Capacitor } from '@capacitor/core';
 import { Camera as CapCamera } from '@capacitor/camera';
+import { Geolocation } from '@capacitor/geolocation';
 
 interface QRScannerModalProps {
     isOpen: boolean;
@@ -21,8 +22,9 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
     const { showAlert } = useUI();
     const [mounted, setMounted] = useState(false);
     const [scannedData, setScannedData] = useState<string | null>(null);
-    const [statusText, setStatusText] = useState("Initializing camera...");
+    const [statusText, setStatusText] = useState("Initializing...");
     const [error, setError] = useState<string | null>(null);
+    const [permissionGuide, setPermissionGuide] = useState<string | null>(null);
     const [scanning, setScanning] = useState(true);
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const regionRef = useRef<HTMLDivElement>(null);
@@ -51,24 +53,69 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
         }
     };
 
-    const requestCameraPermission = async (): Promise<boolean> => {
+    const requestPermissions = async (): Promise<boolean> => {
+        let hasCamera = false;
+        let hasLocation = false;
+        let errMsg = "Permissions Required";
+        let guideMsg = "";
+
         if (Capacitor.isNativePlatform()) {
+            // Android App Flow
             try {
-                let permStatus = await CapCamera.checkPermissions();
-                if (permStatus.camera === 'prompt' || permStatus.camera === 'prompt-with-rationale') {
-                    permStatus = await CapCamera.requestPermissions({ permissions: ['camera'] });
+                // Check Camera
+                let camStatus = await CapCamera.checkPermissions();
+                if (camStatus.camera === 'prompt' || camStatus.camera === 'prompt-with-rationale') {
+                    camStatus = await CapCamera.requestPermissions({ permissions: ['camera'] });
                 }
-                if (permStatus.camera !== 'granted') {
-                    setError("Camera permission denied. Please enable camera access in your device settings.");
-                    return false;
+                hasCamera = camStatus.camera === 'granted';
+
+                // Check Location
+                let locStatus = await Geolocation.checkPermissions();
+                if (locStatus.location === 'prompt' || locStatus.location === 'prompt-with-rationale') {
+                    locStatus = await Geolocation.requestPermissions();
                 }
-                return true;
+                hasLocation = locStatus.location === 'granted';
+
+                if (!hasCamera || !hasLocation) {
+                    guideMsg = "APP GUIDE: Open your device Settings > Apps > Notice Board > Permissions. Allow BOTH Camera and Location access to scan.";
+                }
             } catch (e: any) {
-                console.error('Capacitor Camera permission error:', e);
-                setError("Failed to request camera permission. Please check your device settings.");
-                return false;
+                console.error('Capacitor permission error:', e);
+                guideMsg = "Failed to request permissions automatically. Please check your device settings and manually allow Camera and Location.";
+            }
+        } else {
+            // Web Browser Flow
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                stream.getTracks().forEach(track => track.stop()); // Stop immediately
+                hasCamera = true;
+            } catch (e) {
+                hasCamera = false;
+            }
+
+            try {
+                await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000, maximumAge: 0 });
+                });
+                hasLocation = true;
+            } catch (e) {
+                hasLocation = false;
+            }
+
+            if (!hasCamera || !hasLocation) {
+                guideMsg = "WEBSITE GUIDE: Click the lock icon (🔒) or site settings icon in your web browser address bar. Set BOTH Camera and Location to 'Allow', then click Try Again.";
             }
         }
+
+        if (!hasCamera || !hasLocation) {
+            let missing = [];
+            if (!hasCamera) missing.push("Camera");
+            if (!hasLocation) missing.push("Location");
+            setError(`Missing: ${missing.join(" & ")}`);
+            setPermissionGuide(guideMsg);
+            return false;
+        }
+
         return true;
     };
 
@@ -79,11 +126,11 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
 
         setError(null);
         setScanning(true);
-        setStatusText("Requesting camera access...");
+        setStatusText("Requesting permissions...");
         
         try {
             if (checkCancelled()) return;
-            const hasPermission = await requestCameraPermission();
+            const hasPermission = await requestPermissions();
             if (!hasPermission || checkCancelled()) {
                 setScanning(false);
                 return;
@@ -137,6 +184,7 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
         if (isOpen) {
             setScannedData(null);
             setError(null);
+            setPermissionGuide(null);
             // Delay start so animations and #reader can mount
             timeoutId = setTimeout(() => {
                 if (!isCancelled) initScanner(() => isCancelled);
@@ -177,6 +225,7 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
     const handleRetry = () => {
         setScannedData(null);
         setError(null);
+        setPermissionGuide(null);
         initScanner(() => false);
     };
 
@@ -213,12 +262,19 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
                         <div className="relative w-[300px] h-[300px] bg-white border-4 border-black shadow-[8px_8px_0_0_#00ff00] mb-8 overflow-hidden rounded-none flex items-center justify-center group">
                             
                             {error ? (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-100 p-6 text-center z-10">
-                                    <AlertTriangle className="w-12 h-12 text-red-600 mb-2" />
-                                    <p className="text-black font-bold uppercase text-sm mb-4">{error}</p>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-100 p-4 text-center z-10 overflow-y-auto">
+                                    <AlertTriangle className="w-10 h-10 text-red-600 mb-2 shrink-0" />
+                                    <p className="text-black font-bold uppercase text-sm mb-2 shrink-0">{error}</p>
+                                    {permissionGuide && (
+                                        <div className="bg-white/80 p-3 mb-4 border-2 border-red-200 shadow-[2px_2px_0_0_rgba(220,38,38,0.5)]">
+                                            <p className="text-xs font-mono font-bold text-red-900 leading-tight">
+                                                {permissionGuide}
+                                            </p>
+                                        </div>
+                                    )}
                                     <button 
                                         onClick={handleRetry}
-                                        className="px-4 py-2 bg-black text-white font-bold tracking-tight uppercase flex items-center gap-2 hover:bg-gray-800"
+                                        className="px-4 py-2 bg-black text-white font-bold tracking-tight uppercase flex items-center gap-2 hover:bg-gray-800 shrink-0"
                                     >
                                         <RefreshCcw className="w-4 h-4" /> Try Again
                                     </button>
