@@ -1,5 +1,7 @@
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, query, collection, where, getDocs, serverTimestamp, runTransaction } from 'firebase/firestore';
+import { Capacitor } from '@capacitor/core';
+import { Geolocation } from '@capacitor/geolocation';
 
 export interface LocationCoords {
     latitude: number;
@@ -85,6 +87,64 @@ export async function detectCurrentPeriod(classId: string): Promise<string | nul
 }
 
 /**
+ * Gets user's current location using Capacitor's native plugin on Android,
+ * or the browser Geolocation API on the web. Handles runtime permission requests.
+ */
+async function getCurrentLocation(): Promise<LocationCoords> {
+    if (Capacitor.isNativePlatform()) {
+        // Native: Use Capacitor Geolocation plugin (handles Android runtime permissions)
+        try {
+            // First, check/request permission
+            let permStatus = await Geolocation.checkPermissions();
+            
+            if (permStatus.location === 'prompt' || permStatus.location === 'prompt-with-rationale') {
+                permStatus = await Geolocation.requestPermissions();
+            }
+
+            if (permStatus.location !== 'granted') {
+                throw new Error('Location permission was denied. Please enable location access in your device settings.');
+            }
+
+            const position = await Geolocation.getCurrentPosition({
+                enableHighAccuracy: true,
+                timeout: 15000,
+            });
+
+            return {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+            };
+        } catch (e: any) {
+            console.error('Capacitor Geolocation error:', e);
+            if (e.message?.includes('denied') || e.message?.includes('permission')) {
+                throw new Error('Location permission was denied. Please enable GPS in your device settings and grant location access to this app.');
+            }
+            throw new Error(`Unable to get location: ${e.message || 'Unknown GPS error'}`);
+        }
+    } else {
+        // Web: Use browser Geolocation API
+        return new Promise<LocationCoords>((resolve, reject) => {
+            if (!navigator.geolocation) {
+                return reject(new Error("Geolocation not supported by this browser."));
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+                (err) => {
+                    if (err.code === 1) {
+                        reject(new Error('Location permission was denied. Please allow location access in your browser.'));
+                    } else if (err.code === 2) {
+                        reject(new Error('Location unavailable. Please check that GPS/location services are enabled.'));
+                    } else {
+                        reject(new Error(`Location request timed out. Please try again.`));
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
+        });
+    }
+}
+
+/**
  * Validates QR, checks location, and submits attendance.
  */
 export async function processQRScan(
@@ -127,15 +187,8 @@ export async function processQRScan(
             return { success: false, message: "College location is not configured by the admin yet." };
         }
 
-        onProgress("Acquiring GPS location (please allow prompt)...");
-        const studentLocation = await new Promise<LocationCoords>((resolve, reject) => {
-            if (!navigator.geolocation) return reject(new Error("Geolocation not supported by this browser."));
-            navigator.geolocation.getCurrentPosition(
-                (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-                (err) => reject(new Error(err.message)),
-                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-            );
-        });
+        onProgress("Acquiring GPS location...");
+        const studentLocation = await getCurrentLocation();
 
         onProgress("Calculating proximity...");
         const distance = calculateDistanceMeters(studentLocation, { latitude: gpsConfig.lat, longitude: gpsConfig.lng });
@@ -199,9 +252,10 @@ export async function processQRScan(
 
     } catch (e: any) {
         console.error("QR Processing Error:", e);
-        if (e.message && e.message.includes("User denied geolocation prompt")) {
-             return { success: false, message: "You must enable location services to mark attendance." };
+        if (e.message && (e.message.includes("denied") || e.message.includes("permission"))) {
+             return { success: false, message: e.message };
         }
-        return { success: false, message: e.message || "An expected error occurred." };
+        return { success: false, message: e.message || "An unexpected error occurred." };
     }
 }
+

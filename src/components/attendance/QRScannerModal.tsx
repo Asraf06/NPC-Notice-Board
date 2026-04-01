@@ -8,6 +8,8 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { processQRScan } from '@/lib/attendanceScanner';
 import { useAuth } from '@/context/AuthContext';
 import { useUI } from '@/context/UIContext';
+import { Capacitor } from '@capacitor/core';
+import { Camera as CapCamera } from '@capacitor/camera';
 
 interface QRScannerModalProps {
     isOpen: boolean;
@@ -30,11 +32,40 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
         return () => setMounted(false);
     }, []);
 
+    const requestCameraPermission = async (): Promise<boolean> => {
+        if (Capacitor.isNativePlatform()) {
+            try {
+                let permStatus = await CapCamera.checkPermissions();
+                if (permStatus.camera === 'prompt' || permStatus.camera === 'prompt-with-rationale') {
+                    permStatus = await CapCamera.requestPermissions({ permissions: ['camera'] });
+                }
+                if (permStatus.camera !== 'granted') {
+                    setError("Camera permission denied. Please enable camera access in your device settings.");
+                    return false;
+                }
+                return true;
+            } catch (e: any) {
+                console.error('Capacitor Camera permission error:', e);
+                setError("Failed to request camera permission. Please check your device settings.");
+                return false;
+            }
+        }
+        // On web, the browser will handle the permission prompt when getUserMedia is called
+        return true;
+    };
+
     const initScanner = async () => {
         setError(null);
         setScanning(true);
         setStatusText("Requesting camera access...");
         
+        // On native: request camera permission first via Capacitor
+        const hasPermission = await requestCameraPermission();
+        if (!hasPermission) {
+            setScanning(false);
+            return;
+        }
+
         try {
             if (!scannerRef.current) {
                 scannerRef.current = new Html5Qrcode("reader");
