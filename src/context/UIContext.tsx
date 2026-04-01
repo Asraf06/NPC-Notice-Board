@@ -19,6 +19,9 @@ interface UIContextType {
     showAlert: (title: string, message: string, type?: AlertType, callback?: (() => void) | null) => void;
     closeAlert: () => void;
     openProfile: (uid: string) => void;
+    isScannerOpen: boolean;
+    openScanner: () => void;
+    closeScanner: () => void;
 }
 
 const UIContext = createContext<UIContextType | undefined>(undefined);
@@ -68,6 +71,11 @@ export function UIProvider({ children }: { children: ReactNode }) {
         setProfileUid(uid);
     }, []);
 
+    // Scanner state
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
+    const openScanner = useCallback(() => setIsScannerOpen(true), []);
+    const closeScanner = useCallback(() => setIsScannerOpen(false), []);
+
     // Listen for global events triggered outside React (e.g. from utility files like uploadService)
     useEffect(() => {
         const handleGlobalAlert = (e: Event) => {
@@ -81,7 +89,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
     }, [showAlert]);
 
     return (
-        <UIContext.Provider value={{ showToast, showAlert, closeAlert, openProfile }}>
+        <UIContext.Provider value={{ showToast, showAlert, closeAlert, openProfile, isScannerOpen, openScanner, closeScanner }}>
             {children}
 
             {/* Toast Notification */}

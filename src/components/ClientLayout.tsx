@@ -3,7 +3,7 @@
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ChatProvider } from '@/context/ChatContext';
-import { UIProvider } from '@/context/UIContext';
+import { UIProvider, useUI } from '@/context/UIContext';
 import { NotificationProvider } from '@/context/NotificationContext';
 import AuthOverlay from '@/components/AuthOverlay';
 import Header from '@/components/Header';
@@ -11,7 +11,7 @@ import BottomNav from '@/components/BottomNav';
 import InstallPrompt from '@/components/InstallPrompt';
 import SectionMigrationScreen from '@/components/SectionMigrationScreen';
 import OfflineBanner from '@/components/OfflineBanner';
-import AttendanceFAB from '@/components/attendance/AttendanceFAB';
+import QRScannerModal from '@/components/attendance/QRScannerModal';
 
 import { usePathname } from 'next/navigation';
 
@@ -20,6 +20,7 @@ const HIDE_NAV_ROUTES = ['/profile', '/settings', '/install', '/attendance'];
 
 function AuthenticatedShell({ children }: { children: React.ReactNode }) {
     const { authStep, userProfile } = useAuth();
+    const { isScannerOpen, closeScanner } = useUI();
     const pathname = usePathname();
 
     // Show nothing behind the auth overlay until authenticated
@@ -46,7 +47,7 @@ function AuthenticatedShell({ children }: { children: React.ReactNode }) {
 
             {!hideBottomNav && <BottomNav />}
             {!hideBottomNav && <InstallPrompt />}
-            <AttendanceFAB />
+            <QRScannerModal isOpen={isScannerOpen} onClose={closeScanner} />
         </div>
     );
 }

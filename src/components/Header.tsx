@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
+import { useUI } from '@/context/UIContext';
 import { useTheme } from '@/context/ThemeContext';
-import { Clipboard, MessageCircle, Menu } from 'lucide-react';
+import { Clipboard, MessageCircle, Menu, Camera } from 'lucide-react';
 import ProfileModal from './profile/ProfileModal';
 import NotificationBell from './NotificationBell';
 import SidePanel from './SidePanel';
@@ -19,6 +20,7 @@ const navItems = [
 
 export default function Header() {
     const { userProfile } = useAuth();
+    const { openScanner } = useUI();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [profileSourceRect, setProfileSourceRect] = useState<DOMRect | null>(null);
     const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
@@ -86,9 +88,19 @@ export default function Header() {
                     <Link
                         href="/social/recent"
                         className="hidden md:flex relative p-2 border border-black dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                        title="Messages"
                     >
                         <MessageCircle className="w-5 h-5" />
                     </Link>
+
+                    {/* QR Scanner (Desktop) */}
+                    <button
+                        onClick={openScanner}
+                        className="hidden md:flex relative p-2 border border-black dark:border-zinc-700 bg-yellow-400 hover:bg-yellow-500 text-black transition-colors"
+                        title="Scan Attendance"
+                    >
+                        <Camera className="w-5 h-5" />
+                    </button>
 
                     {/* Notification Bell */}
                     <NotificationBell />
