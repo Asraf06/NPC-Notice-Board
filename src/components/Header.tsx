@@ -84,15 +84,6 @@ export default function Header() {
 
                 {/* Right Actions */}
                 <div className="flex items-center gap-3">
-                    {/* Chat Toggle (Desktop) */}
-                    <Link
-                        href="/social/recent"
-                        className="hidden md:flex relative p-2 border border-black dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
-                        title="Messages"
-                    >
-                        <MessageCircle className="w-5 h-5" />
-                    </Link>
-
                     {/* QR Scanner (Desktop) */}
                     <button
                         onClick={openScanner}
@@ -101,6 +92,15 @@ export default function Header() {
                     >
                         <Camera className="w-5 h-5" />
                     </button>
+
+                    {/* Chat Toggle (Desktop) */}
+                    <Link
+                        href="/social/recent"
+                        className="hidden md:flex relative p-2 border border-black dark:border-zinc-700 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+                        title="Messages"
+                    >
+                        <MessageCircle className="w-5 h-5" />
+                    </Link>
 
                     {/* Notification Bell */}
                     <NotificationBell />
