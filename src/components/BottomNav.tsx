@@ -18,7 +18,7 @@ export default function BottomNav() {
     const { openScanner } = useUI();
 
     return (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-black border-t-2 border-black dark:border-zinc-800 flex items-center justify-around z-[100] px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-black border-t-2 border-black dark:border-zinc-800 flex items-center justify-around z-[100] px-2 shadow-[0_-4px_10px_rgba(0,0,0,0.1)] safe-bottom">
             {items.slice(0, 2).map((item) => {
                 const Icon = item.icon;
                 const isActive = item.id === '/'

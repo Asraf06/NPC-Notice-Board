@@ -36,7 +36,7 @@ export default function Header() {
 
     return (
         <>
-            <header className="h-16 border-b-2 border-black dark:border-zinc-800 flex items-center justify-between px-4 lg:px-8 bg-white dark:bg-black shrink-0 z-20">
+            <header className="safe-top h-16 border-b-2 border-black dark:border-zinc-800 flex items-center justify-between px-4 lg:px-8 bg-white dark:bg-black shrink-0 z-20">
                 {/* Left: Logo */}
                 <div className="flex items-center">
                     <Link href="/notices" className="flex items-center gap-3">

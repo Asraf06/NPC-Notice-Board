@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* ============================================
+   ANDROID 15+ EDGE-TO-EDGE SAFE AREA SUPPORT
+   env(safe-area-inset-*) = 0px on older Android
+   so these classes have zero effect on Android 12
+   ============================================ */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
 
 
 /* ============================================

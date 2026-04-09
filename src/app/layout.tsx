@@ -21,6 +21,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
@@ -54,7 +55,7 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://i.ibb.co" />
       </head>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
+        className={`${inter.variable} ${jetbrainsMono.variable} antialiased bg-white dark:bg-black`}
         style={{ fontFamily: "'Inter', sans-serif" }}
         suppressHydrationWarning
       >
