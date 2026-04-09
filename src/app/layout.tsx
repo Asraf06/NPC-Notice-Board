@@ -25,9 +25,25 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "NPC Notice Board",
-  description: "Official Campus Updates — NPC Notice Board",
+  title: "NPC Notice Board — Official Campus Notices, Routine & Materials",
+  description: "NPC Notice Board is the official digital notice board for Naogaon Polytechnic College students. Get campus notices, class routine, study materials, attendance tracking and more.",
   manifest: "/manifest.json",
+  keywords: ["NPC Notice Board", "npc notice board", "Naogaon Polytechnic College", "campus notices", "class routine", "study materials", "attendance", "student portal"],
+  verification: {
+    google: "KfvIjTAgMUOFBdbXUUO8NEH1f-JGqMM7sGHUU-GLww0",
+  },
+  metadataBase: new URL("https://npcnoticeboard.vercel.app"),
+  alternates: {
+    canonical: "https://npcnoticeboard.vercel.app",
+  },
+  openGraph: {
+    title: "NPC Notice Board — Official Campus Updates",
+    description: "The official digital notice board for Naogaon Polytechnic College. Notices, routine, materials, attendance & more.",
+    url: "https://npcnoticeboard.vercel.app",
+    siteName: "NPC Notice Board",
+    type: "website",
+    locale: "en_US",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

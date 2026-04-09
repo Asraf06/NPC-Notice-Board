@@ -1,0 +1,12 @@
+# NPC Notice Board - Robots.txt
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://npcnoticeboard.vercel.app/sitemap.xml
+
+# Block API routes and internal paths from indexing
+Disallow: /api/
+Disallow: /action_handler.html
+Disallow: /login
+Disallow: /install
