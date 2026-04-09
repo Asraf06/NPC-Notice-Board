@@ -1,6 +1,7 @@
 import { db, auth } from './firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { apiUrl } from './apiBase';
+import { Capacitor } from '@capacitor/core';
 
 /**
  * 🚀 CLIENT-SIDE UPLOAD SERVICE (Vercel Edition)
@@ -55,10 +56,71 @@ function showGlobalAlert(title: string, message: string) {
     }
 }
 
+/**
+ * On Capacitor Android WebView, File objects from <input type="file">
+ * often fail to serialize in FormData for cross-origin XHR/fetch uploads.
+ * This reads the file bytes into memory as a plain Blob, which works reliably.
+ */
+async function fileToBlob(file: File): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            resolve(new Blob([reader.result as ArrayBuffer], { type: file.type || 'application/octet-stream' }));
+        };
+        reader.onerror = () => reject(new Error('FileReader failed to read file'));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
 async function uploadDirectly(file: File, onProgress?: (pct: number) => void, folderPath: string = '/uploads/client'): Promise<UploadResult | null> {
     const keys = await fetchUploadKeys();
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
+    const isNative = Capacitor.isNativePlatform();
+    const fileName = file.name;
+
+    // On native, convert File to in-memory Blob for WebView compatibility
+    let uploadBlob: Blob | File = file;
+    if (isNative) {
+        try {
+            uploadBlob = await fileToBlob(file);
+            console.log(`[Upload] Converted File to Blob: ${uploadBlob.size} bytes, type: ${uploadBlob.type}`);
+        } catch (e) {
+            console.error('[Upload] fileToBlob conversion failed, using raw File:', e);
+        }
+    }
+
+    /** Parse upload response JSON into UploadResult */
+    const parseResponse = (data: any, serviceName: string): UploadResult | null => {
+        if (serviceName === 'imagekit' && data.fileId) {
+            return { type: isImage ? 'image' : isVideo ? 'video' : 'file', url: data.url, thumb: data.thumbnailUrl || data.url, name: fileName, service: 'imagekit', fileId: data.fileId };
+        } else if (serviceName === 'imgbb' && data.success) {
+            const thumb = data.data.thumb?.url || data.data.medium?.url || data.data.url;
+            return { type: 'image', url: data.data.url, thumb, name: fileName, service: 'imgbb', fileId: null };
+        } else if (serviceName === 'cloudinary' && data.secure_url) {
+            return { type: isImage ? 'image' : isVideo ? 'video' : 'file', url: data.secure_url, thumb: isImage ? (data.eager?.[0]?.secure_url || data.secure_url) : null, name: fileName, service: 'cloudinary', fileId: data.public_id || null };
+        }
+        return null;
+    };
+
+    /** fetch-based upload fallback (no progress, but more reliable on native WebViews) */
+    const doFetchUpload = async (url: string, formData: FormData, serviceName: string): Promise<UploadResult | null> => {
+        try {
+            console.log(`[Upload] Trying fetch fallback for ${serviceName}...`);
+            const resp = await fetch(url, { method: 'POST', body: formData });
+            if (resp.ok) {
+                const data = await resp.json();
+                const parsed = parseResponse(data, serviceName);
+                if (parsed) return parsed;
+                console.error(`${serviceName} fetch response invalid:`, data);
+            } else {
+                console.error(`${serviceName} fetch HTTP ${resp.status}`, await resp.text().catch(() => ''));
+            }
+        } catch (err: any) {
+            console.error(`${serviceName} fetch error:`, err?.message);
+        }
+        return null;
+    };
 
     const doXhrUpload = (url: string, formData: FormData, serviceName: string): Promise<UploadResult | null> => {
         return new Promise((resolve) => {
@@ -72,58 +134,39 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void, fo
                 if (xhr.status === 200 || xhr.status === 201) {
                     try {
                         const data = JSON.parse(xhr.responseText);
-                        if (serviceName === 'imagekit' && data.fileId) {
-                            resolve({
-                                type: isImage ? 'image' : isVideo ? 'video' : 'file',
-                                url: data.url,
-                                thumb: data.thumbnailUrl || data.url,
-                                name: file.name,
-                                service: 'imagekit',
-                                fileId: data.fileId
-                            });
-                        } else if (serviceName === 'imgbb' && data.success) {
-                            const thumb = data.data.thumb?.url || data.data.medium?.url || data.data.url;
-                            resolve({
-                                type: 'image',
-                                url: data.data.url,
-                                thumb: thumb,
-                                name: file.name,
-                                service: 'imgbb',
-                                fileId: null
-                            });
-                        } else if (serviceName === 'cloudinary' && data.secure_url) {
-                            resolve({
-                                type: isImage ? 'image' : isVideo ? 'video' : 'file',
-                                url: data.secure_url,
-                                thumb: isImage ? (data.eager?.[0]?.secure_url || data.secure_url) : null,
-                                name: file.name,
-                                service: 'cloudinary',
-                                fileId: data.public_id || null
-                            });
+                        const parsed = parseResponse(data, serviceName);
+                        if (parsed) {
+                            resolve(parsed);
                         } else {
                             console.error(`${serviceName} upload response invalid:`, data);
-                            showGlobalAlert('Upload Response Error', `${serviceName} returned invalid format. Data: ${JSON.stringify(data).substring(0, 100)}`);
                             resolve(null);
                         }
                     } catch (err: any) {
                         console.error(`${serviceName} parse error:`, err);
-                        showGlobalAlert('JSON Parse Error', `${serviceName} parse failed: ${err?.message || 'Unknown'}`);
                         resolve(null);
                     }
                 } else {
                     console.error(`${serviceName} HTTP status ${xhr.status}`, xhr.responseText);
-                    showGlobalAlert('HTTP Error', `${serviceName} failed! Status: ${xhr.status}. Response: ${xhr.responseText.substring(0, 100)}`);
                     resolve(null);
                 }
             };
-            xhr.onerror = (err) => {
-                console.error(`${serviceName} XHR network error`);
-                showGlobalAlert('Network Error', `${serviceName} XHR failed. Check CORS or invalid File object inside FormData.`);
-                resolve(null);
+            xhr.onerror = () => {
+                console.error(`${serviceName} XHR network error — will try fetch fallback`);
+                resolve(null); // will fall through to fetch fallback
             };
             xhr.open('POST', url);
             xhr.send(formData);
         });
+    };
+
+    /** Try XHR first (supports progress), then fetch fallback */
+    const doUpload = async (url: string, formData: FormData, serviceName: string): Promise<UploadResult | null> => {
+        let res = await doXhrUpload(url, formData, serviceName);
+        if (!res && isNative) {
+            // On native, XHR often fails — retry with fetch
+            res = await doFetchUpload(url, formData, serviceName);
+        }
+        return res;
     };
 
     let result: UploadResult | null = null;
@@ -150,16 +193,16 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void, fo
 
                     if (authData && authData.token && authData.signature && authData.expire) {
                         const formData = new FormData();
-                        formData.append('file', file);
+                        formData.append('file', uploadBlob, fileName);
                         formData.append('publicKey', authData.publicKey);
                         formData.append('signature', authData.signature);
                         formData.append('expire', authData.expire.toString());
                         formData.append('token', authData.token);
-                        formData.append('fileName', file.name);
+                        formData.append('fileName', fileName);
                         formData.append('useUniqueFileName', 'true');
                         formData.append('folder', folderPath);
 
-                        result = await doXhrUpload('https://upload.imagekit.io/api/v1/files/upload', formData, 'imagekit');
+                        result = await doUpload('https://upload.imagekit.io/api/v1/files/upload', formData, 'imagekit');
                     } else {
                         showGlobalAlert('ImageKit Config Error', `Auth JSON missing fields. Data: ${JSON.stringify(authData).substring(0, 100)}`);
                     }
@@ -187,18 +230,18 @@ async function uploadDirectly(file: File, onProgress?: (pct: number) => void, fo
         else resourceType = 'raw';
 
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('file', uploadBlob, fileName);
         formData.append('upload_preset', keys.cloudPreset);
 
-        result = await doXhrUpload(`https://api.cloudinary.com/v1_1/${keys.cloudName}/${resourceType}/upload`, formData, 'cloudinary');
+        result = await doUpload(`https://api.cloudinary.com/v1_1/${keys.cloudName}/${resourceType}/upload`, formData, 'cloudinary');
     }
 
     // 3️⃣ Use ImgBB ONLY as a last resort fallback for images.
     if (!result && isImage && keys?.imgbb) {
         console.log('Cloudinary failed. Falling back to ImgBB...');
         const formData = new FormData();
-        formData.append('image', file);
-        result = await doXhrUpload(`https://api.imgbb.com/1/upload?key=${keys.imgbb}`, formData, 'imgbb');
+        formData.append('image', uploadBlob, fileName);
+        result = await doUpload(`https://api.imgbb.com/1/upload?key=${keys.imgbb}`, formData, 'imgbb');
     }
 
     if (!result) {
