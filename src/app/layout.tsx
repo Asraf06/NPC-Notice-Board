@@ -30,12 +30,12 @@ export const metadata: Metadata = {
     default: "NPC Notice Board — Official Campus Notices, Routine & Materials",
     template: "%s | NPC Notice Board",
   },
-  description: "NPC Notice Board is the official digital notice board for Naogaon Polytechnic College (NPC) students. Get campus notices, class routine, study materials, attendance tracking, and connect with classmates — all in one place.",
+  description: "NPC Notice Board is the official digital notice board for National Polytechnic College (NPC) students. Get campus notices, class routine, study materials, attendance tracking, and connect with classmates — all in one place.",
   manifest: "/manifest.json",
   keywords: [
     "NPC Notice Board",
     "npc notice board",
-    "Naogaon Polytechnic College",
+    "National Polytechnic College",
     "NPC",
     "campus notices",
     "class routine",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "NPC Notice Board — Official Campus Updates",
-    description: "The official digital notice board for Naogaon Polytechnic College. Notices, routine, materials, attendance & more — all in one place.",
+    description: "The official digital notice board for National Polytechnic College. Notices, routine, materials, attendance & more — all in one place.",
     url: "https://npcnoticeboard.vercel.app",
     siteName: "NPC Notice Board",
     type: "website",
@@ -63,7 +63,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "NPC Notice Board",
-    description: "Official digital notice board for Naogaon Polytechnic College students.",
+    description: "Official digital notice board for National Polytechnic College students.",
   },
   robots: {
     index: true,
@@ -98,7 +98,7 @@ const jsonLd = {
       "@type": "WebApplication",
       "name": "NPC Notice Board",
       "url": "https://npcnoticeboard.vercel.app",
-      "description": "Official digital notice board for Naogaon Polytechnic College students. Campus notices, class routine, study materials, attendance tracking and social features.",
+      "description": "Official digital notice board for National Polytechnic College students. Campus notices, class routine, study materials, attendance tracking and social features.",
       "applicationCategory": "EducationalApplication",
       "operatingSystem": "Android, Web",
       "offers": {
