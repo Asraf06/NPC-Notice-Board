@@ -1104,7 +1104,7 @@ label[for] {
 
 @media (min-width: 1024px) {
   .routine-grid-container {
-    grid-template-columns: auto repeat(var(--day-count, 5), 1fr);
+    grid-template-columns: auto repeat(var(--slot-count, 7), 1fr);
   }
 }
 
@@ -1142,6 +1142,26 @@ label[for] {
   background: #fff;
   color: #000;
   border-color: #fff;
+}
+
+/* Time slot column headers — purple accent to differentiate from day row headers */
+.routine-time-header {
+  background: #6b21a8;
+  color: #fff;
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  border: 2px solid #6b21a8;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+.dark .routine-time-header {
+  background: #7c3aed;
+  border-color: #7c3aed;
+  color: #fff;
 }
 
 /* ============================================

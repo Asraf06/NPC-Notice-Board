@@ -160,25 +160,25 @@ export default function RoutineView() {
                         )}
                     </div>
 
-                    {/* Desktop Grid View */}
+                    {/* Desktop Grid View — Days as rows, Times as columns */}
                     <div className="hidden lg:block overflow-x-auto pb-10 custom-scrollbar" data-lenis-prevent>
                         <div
                             className="routine-grid-container"
-                            style={{ '--day-count': routineData.days.length } as any}
+                            style={{ '--slot-count': routineData.slots.length } as any}
                         >
-                            {/* Header Row */}
-                            <div className="routine-header-cell">TIME</div>
-                            {routineData.days.map(day => (
-                                <div key={day} className="routine-header-cell">{day}</div>
+                            {/* Header Row — DAY label + time slot headers */}
+                            <div className="routine-header-cell">DAY</div>
+                            {routineData.slots.map(slot => (
+                                <div key={slot} className="routine-time-header">{slot}</div>
                             ))}
 
-                            {/* Slots */}
-                            {routineData.slots.map(slot => (
-                                <div key={slot} className="contents">
-                                    <div className="flex items-center justify-center p-4 border-2 border-black dark:border-zinc-800 bg-gray-50 dark:bg-zinc-950 font-mono font-black text-[10px] uppercase text-center shadow-[inset_0_0_10px_rgba(0,0,0,0.02)]">
-                                        {slot}
+                            {/* Each day is a row */}
+                            {routineData.days.map(day => (
+                                <div key={day} className="contents">
+                                    <div className="routine-header-cell flex items-center justify-center !text-sm tracking-widest">
+                                        {day}
                                     </div>
-                                    {routineData.days.map(day => {
+                                    {routineData.slots.map(slot => {
                                         const classData = routineData.schedule[day]?.find(s => s.time === slot);
                                         if (classData) {
                                             return (

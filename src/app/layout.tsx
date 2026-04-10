@@ -81,36 +81,44 @@ export const metadata: Metadata = {
     title: "NPC Notice Board",
   },
   icons: {
-    icon: "/favicon.png?v=2",
-    apple: "/icons/icon-192.png?v=2",
+    icon: "/favicon.png",
+    apple: "/icons/icon-192.png",
   },
 };
 
-/** JSON-LD Structured Data — helps Google understand & display the site in search */
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "NPC Notice Board",
-  "url": "https://npcnoticeboard.vercel.app",
-  "description": "Official digital notice board for Naogaon Polytechnic College students. Campus notices, class routine, study materials, attendance tracking and social features.",
-  "applicationCategory": "EducationalApplication",
-  "operatingSystem": "Android, Web",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "BDT",
-  },
-  "author": {
-    "@type": "Organization",
-    "name": "NPC Notice Board",
-    "url": "https://npcnoticeboard.vercel.app",
-  },
-  "aggregateRating": {
-    "@type": "AggregateRating",
-    "ratingValue": "5",
-    "ratingCount": "10",
-    "bestRating": "5",
-  },
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "name": "NPC Notice Board",
+      "url": "https://npcnoticeboard.vercel.app",
+    },
+    {
+      "@type": "WebApplication",
+      "name": "NPC Notice Board",
+      "url": "https://npcnoticeboard.vercel.app",
+      "description": "Official digital notice board for Naogaon Polytechnic College students. Campus notices, class routine, study materials, attendance tracking and social features.",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Android, Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "BDT",
+      },
+      "author": {
+        "@type": "Organization",
+        "name": "NPC Notice Board",
+        "url": "https://npcnoticeboard.vercel.app",
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "5",
+        "ratingCount": "10",
+        "bestRating": "5",
+      },
+    }
+  ]
 };
 
 export default function RootLayout({
