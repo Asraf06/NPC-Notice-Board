@@ -34,6 +34,8 @@ messaging.onBackgroundMessage((payload) => {
         clickUrl = `/notices?noticeId=${data.noticeId}`;
     } else if (data.type === 'chat' && data.chatWith) {
         clickUrl = `/social/recent?chatWith=${data.chatWith}`;
+    } else if (data.type === 'friend_request') {
+        clickUrl = '/social/friends?view=requests';
     }
 
     // Determine unique tag so every notification is physical and distinct

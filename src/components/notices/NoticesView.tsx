@@ -174,13 +174,20 @@ export default function NoticesView() {
 
         const q = query(
             collection(db, 'notice_subjects'),
-            where('dept', '==', userProfile.dept),
-            where('sem', '==', userProfile.sem)
+            where('dept', 'in', [userProfile.dept, 'all', 'All', 'ALL'])
         );
 
         getDocs(q).then(snapshot => {
             const subjects: SubjectData[] = [];
-            snapshot.forEach(doc => subjects.push(doc.data() as SubjectData));
+            snapshot.forEach(doc => {
+                const data = doc.data() as SubjectData;
+                const subjectSem = data.sem?.toLowerCase() || '';
+                if (data.sem === userProfile.sem || subjectSem === 'all' || subjectSem === 'all semester') {
+                    subjects.push(data);
+                }
+            });
+            // Sort subjects alphabetically
+            subjects.sort((a, b) => a.name.localeCompare(b.name));
             setStudentSubjects(subjects);
         });
     }, [userProfile?.dept, userProfile?.sem]);

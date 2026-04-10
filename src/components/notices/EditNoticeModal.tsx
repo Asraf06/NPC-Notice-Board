@@ -55,10 +55,18 @@ export default function EditNoticeModal({ notice, onClose }: EditNoticeModalProp
             const subs: { label: string; value: string }[] = [];
             snap.forEach(d => {
                 const s = d.data();
-                if ((s.dept === 'all' || s.dept === userProfile.dept) && (s.sem === 'all' || s.sem === userProfile.sem) && (!s.section || s.section === 'all' || s.section === userProfile.section)) {
+                const sDept = s.dept?.toLowerCase() || '';
+                const sSem = s.sem?.toLowerCase() || '';
+                
+                const deptMatch = sDept === 'all' || s.dept === userProfile.dept;
+                const semMatch = sSem === 'all' || sSem === 'all semester' || s.sem === userProfile.sem;
+                
+                if (deptMatch && semMatch) {
                     subs.push({ label: `${s.name} [${s.code}]`, value: `${s.name} (${s.code})` });
                 }
             });
+            // Sort alphabetically
+            subs.sort((a, b) => a.label.localeCompare(b.label));
             setSubjects(subs);
         });
     }, [userProfile]);

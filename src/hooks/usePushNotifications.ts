@@ -134,6 +134,8 @@ export function usePushNotifications(userProfile: UserProfile | null, router: Ap
                             } else if (data.type === 'chat' && data.chatWith) {
                                 router.push(`/social/recent?chatWith=${data.chatWith}`);
                                 window.dispatchEvent(new CustomEvent('open-chat', { detail: { chatWith: data.chatWith } }));
+                            } else if (data.type === 'friend_request') {
+                                router.push('/social/friends?view=requests');
                             }
                         } catch (err) {
                             console.error('Routing err:', err);
