@@ -32,6 +32,8 @@ export default function ManageBoardRollsModal({ isOpen, onClose }: ManageBoardRo
     const [newRoll, setNewRoll] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [strictMode, setStrictMode] = useState(false);
+    const [strictModeRequestPending, setStrictModeRequestPending] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
     useSmoothScroll(scrollRef);
 
@@ -48,7 +50,13 @@ export default function ManageBoardRollsModal({ isOpen, onClose }: ManageBoardRo
             const ref = doc(db, 'class_rolls', docId);
             const snap = await getDoc(ref);
             if (snap.exists()) {
-                const data = snap.data().rolls || [];
+                const classData = snap.data();
+                setStrictMode(classData.strictMode === true);
+                
+                const reqSnap = await getDoc(doc(db, 'strict_mode_requests', docId));
+                setStrictModeRequestPending(reqSnap.exists() && reqSnap.data().status === 'pending');
+
+                const data = classData.rolls || [];
                 // Normalize data
                 const normalized = data.map((r: any) => {
                     if (typeof r === 'object') return r;
@@ -238,6 +246,29 @@ export default function ManageBoardRollsModal({ isOpen, onClose }: ManageBoardRo
         }
     };
 
+    const requestStrictMode = async () => {
+        if (!docId || !userProfile) return;
+        if (!confirm('Request Admin to enable Strict Mode? This will restrict registration to only the board rolls in this list.')) return;
+        
+        try {
+            await setDoc(doc(db, 'strict_mode_requests', docId), {
+                docId,
+                dept: userProfile.dept,
+                sem: userProfile.sem,
+                section: userProfile.section,
+                requestedBy: userProfile.name || 'CR',
+                requestedByUid: userProfile.uid,
+                status: 'pending',
+                timestamp: Date.now()
+            });
+            setStrictModeRequestPending(true);
+            showAlert('Success', 'Strict mode request sent to admin.', 'success');
+        } catch (err) {
+            console.error(err);
+            showAlert('Error', 'Failed to send request.', 'error');
+        }
+    };
+
     if (!isOpen || typeof document === 'undefined') return null;
 
     return createPortal(
@@ -261,6 +292,28 @@ export default function ManageBoardRollsModal({ isOpen, onClose }: ManageBoardRo
                 <p className="text-xs font-mono opacity-60 mb-4 border-b pb-2">
                     Managing: {userProfile?.dept} {userProfile?.sem}
                 </p>
+
+                {/* Strict Mode Banner */}
+                <div className={`mb-4 p-3 border-2 text-xs font-mono flex flex-col gap-2 ${strictMode ? 'border-red-500 bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400' : 'border-amber-500 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400'}`}>
+                    <div className="flex items-center justify-between font-bold uppercase tracking-wider">
+                        <span>Strict Mode: {strictMode ? 'ON' : 'OFF'}</span>
+                        <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <p className="text-[10px] leading-tight opacity-80">
+                        {strictMode 
+                            ? "Strict mode is active. Only users matching this list can register or login." 
+                            : "Registration is open to all rolls. To lock this list down, send a request to the Admin."}
+                    </p>
+                    {!strictMode && (
+                        <button 
+                            onClick={requestStrictMode}
+                            disabled={strictModeRequestPending}
+                            className={`mt-1 py-1.5 px-3 border-2 font-bold uppercase text-[10px] transition-colors ${strictModeRequestPending ? 'border-gray-400 text-gray-500 bg-gray-100 dark:bg-transparent dark:border-zinc-700 dark:text-zinc-500 cursor-not-allowed' : 'border-amber-600 bg-amber-500 text-white hover:bg-amber-600'}`}
+                        >
+                            {strictModeRequestPending ? 'Request Pending...' : 'Request Strict Mode'}
+                        </button>
+                    )}
+                </div>
 
                 {/* Add Roll Form */}
                 <div className="flex items-center justify-between mb-2 mt-2">

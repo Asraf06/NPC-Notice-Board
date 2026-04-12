@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth, ProfileSaveData } from '@/context/AuthContext';
 import { useUI } from '@/context/UIContext';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { LogIn, MailCheck, AlertCircle, Lock, Mail, User, CheckCircle2, ArrowRight, Loader2, X, Eye, EyeOff } from 'lucide-react';
+import { LogIn, MailCheck, AlertCircle, Lock, Mail, User, CheckCircle2, ArrowRight, Loader2, X, Eye, EyeOff, Send, Edit3 } from 'lucide-react';
 import { parseFirebaseError } from '@/lib/errorParser';
 import CustomSelect from './CustomSelect';
 
@@ -22,6 +22,7 @@ const validatePassword = (pass: string) => {
 export default function AuthOverlay() {
     const {
         user,
+        userProfile,
         authStep,
         globalSettings,
         handleGoogleLogin,
@@ -32,6 +33,7 @@ export default function AuthOverlay() {
         checkVerificationStatus,
         resendVerificationEmail,
         cancelRegistration,
+        updateUserProfile,
         authError,
         clearAuthError,
     } = useAuth();
@@ -78,6 +80,13 @@ export default function AuthOverlay() {
 
     // Verification state
     const [verifyLoading, setVerifyLoading] = useState(false);
+
+    // Lock screen state
+    const [lockNewRoll, setLockNewRoll] = useState('');
+    const [lockFixLoading, setLockFixLoading] = useState(false);
+    const [lockReportMsg, setLockReportMsg] = useState('');
+    const [lockReportSending, setLockReportSending] = useState(false);
+    const [lockReportSent, setLockReportSent] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(false);
 
     // Fetch departments and sections from Firestore
@@ -633,6 +642,122 @@ export default function AuthOverlay() {
                                 </div>
                             </form>
                         )}
+                    </div>
+                )}
+                {/* STRICT LOCK STEP */}
+                {authStep === 'strict-lock' && (
+                    <div className="animate-in fade-in zoom-in duration-300">
+                        <div className="text-center mb-5">
+                            <Lock className="w-14 h-14 mx-auto mb-3 text-red-500" />
+                            <h2 className="text-2xl font-black uppercase text-red-600 dark:text-red-400 tracking-tighter">Account Locked</h2>
+                            <p className="text-[10px] font-bold uppercase tracking-wider opacity-70 mt-1">
+                                Strict Mode is active for your class
+                            </p>
+                        </div>
+
+                        {/* Error Details */}
+                        <div className="bg-red-50 dark:bg-red-950/20 border-2 border-red-500 text-red-700 dark:text-red-400 p-3 font-mono text-xs text-left mb-4">
+                            <p className="uppercase font-bold tracking-widest border-b border-red-500/20 pb-1.5 mb-2 text-[10px]">Roll Not Found in Verified List</p>
+                            <p className="mb-0.5"><strong>Dept:</strong> {userProfile?.dept} — {userProfile?.sem} Sem</p>
+                            <p><strong>Your Roll:</strong> {userProfile?.roll}</p>
+                        </div>
+
+                        {/* Self-Healing: Fix Roll */}
+                        <div className="border-2 border-black dark:border-white p-3 mb-4">
+                            <p className="text-[10px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                                <Edit3 className="w-3 h-3" /> Typo? Correct Your Roll
+                            </p>
+                            <div className="flex gap-2">
+                                <input
+                                    type="number"
+                                    value={lockNewRoll}
+                                    onChange={e => setLockNewRoll(e.target.value)}
+                                    placeholder="Enter correct roll"
+                                    className="flex-1 p-2 bg-transparent border-2 border-gray-300 dark:border-zinc-700 font-mono text-sm outline-none focus:border-black dark:focus:border-white"
+                                />
+                                <button
+                                    onClick={async () => {
+                                        if (!lockNewRoll.trim() || !user) return;
+                                        setLockFixLoading(true);
+                                        try {
+                                            await updateUserProfile({ roll: lockNewRoll.trim() });
+                                            showAlert('Roll Updated', 'Your roll has been corrected. Reloading...', 'success', () => window.location.reload());
+                                        } catch (err: any) {
+                                            showAlert('Error', err.message || 'Failed to update roll.', 'error');
+                                        } finally {
+                                            setLockFixLoading(false);
+                                        }
+                                    }}
+                                    disabled={lockFixLoading || !lockNewRoll.trim()}
+                                    className="px-4 py-2 bg-black text-white dark:bg-white dark:text-black font-bold text-xs uppercase disabled:opacity-40 transition-opacity"
+                                >
+                                    {lockFixLoading ? '...' : 'Fix'}
+                                </button>
+                            </div>
+                            <p className="text-[9px] opacity-50 mt-1.5 leading-snug">If your roll was a typo, correct it here. The system will re-check against the verified list.</p>
+                        </div>
+
+                        {/* Report to Admin */}
+                        <div className="border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/20 p-3 mb-4">
+                            <p className="text-[10px] font-bold uppercase tracking-wider mb-2 text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                                <Send className="w-3 h-3" /> Report to Admin
+                            </p>
+                            {lockReportSent ? (
+                                <div className="text-center py-3">
+                                    <CheckCircle2 className="w-8 h-8 mx-auto text-emerald-500 mb-2" />
+                                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase">Report Sent!</p>
+                                    <p className="text-[10px] opacity-60 mt-1">Admin will review your case shortly.</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <textarea
+                                        rows={3}
+                                        value={lockReportMsg}
+                                        onChange={e => setLockReportMsg(e.target.value)}
+                                        placeholder="Explain why your roll is correct... (e.g. 'I am a real student, my CR might have missed my roll')" 
+                                        className="w-full p-2 bg-white dark:bg-black border-2 border-amber-300 dark:border-amber-700 font-mono text-xs outline-none focus:border-amber-500 resize-none"
+                                    />
+                                    <button
+                                        onClick={async () => {
+                                            if (!lockReportMsg.trim() || !user || !userProfile) return;
+                                            setLockReportSending(true);
+                                            try {
+                                                await setDoc(doc(db, 'user_reports', `${user.uid}_${Date.now()}`), {
+                                                    uid: user.uid,
+                                                    name: userProfile.name,
+                                                    email: userProfile.email || user.email,
+                                                    roll: userProfile.roll,
+                                                    dept: userProfile.dept,
+                                                    sem: userProfile.sem,
+                                                    section: userProfile.section,
+                                                    message: lockReportMsg.trim(),
+                                                    type: 'roll_mismatch',
+                                                    status: 'pending',
+                                                    timestamp: serverTimestamp()
+                                                });
+                                                setLockReportSent(true);
+                                            } catch (err: any) {
+                                                showAlert('Error', 'Failed to send report.', 'error');
+                                            } finally {
+                                                setLockReportSending(false);
+                                            }
+                                        }}
+                                        disabled={lockReportSending || !lockReportMsg.trim()}
+                                        className="w-full mt-2 py-2 bg-amber-500 text-white font-bold text-xs uppercase hover:bg-amber-600 disabled:opacity-40 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        {lockReportSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                        {lockReportSending ? 'Sending...' : 'Send Report'}
+                                    </button>
+                                </>
+                            )}
+                        </div>
+
+                        <button
+                            onClick={() => { cancelRegistration(); window.location.reload(); }}
+                            className="w-full py-2.5 border-2 border-black dark:border-white font-bold uppercase text-xs hover:bg-gray-100 dark:hover:bg-zinc-900 transition-colors"
+                        >
+                            Log Out / Start Over
+                        </button>
                     </div>
                 )}
             </div>

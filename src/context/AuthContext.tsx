@@ -56,7 +56,7 @@ export interface GlobalSettings {
     globalChatLocked?: boolean;
 }
 
-type AuthStep = 'loading' | 'login' | 'verification' | 'profile' | 'authenticated';
+type AuthStep = 'loading' | 'login' | 'verification' | 'profile' | 'authenticated' | 'strict-lock';
 
 interface AuthContextType {
     user: User | null;
@@ -234,7 +234,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                                         return;
                                     }
                                 }
-                            } catch (e) { console.error("Access control check failed", e) }
+                                
+                                // Strict Mode Intercept
+                                const rollDocId = `${userData.section}_${userData.dept}_${userData.sem}`;
+                                const rollRef = await getDoc(doc(db, 'class_rolls', rollDocId));
+                                if (rollRef.exists()) {
+                                    const classData = rollRef.data();
+                                    if (classData.strictMode === true) {
+                                        const allowedRolls = classData.rolls || [];
+                                        const isAllowed = allowedRolls.some((r: any) => {
+                                            const val = typeof r === 'object' ? r.value : r;
+                                            return val.toString() === userData.roll.trim();
+                                        });
+                                        if (!isAllowed) {
+                                            setUserProfile(userData); 
+                                            setAuthStep('strict-lock');
+                                            return;
+                                        }
+                                    }
+                                }
+                            } catch (e) { console.error("Access/Strict control check failed", e) }
                         }
 
                         setUserProfile(userData);
@@ -387,22 +406,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         }
 
-        // 2. Check Allowed Rolls (if defined by CR or Admin)
+        // 2. Check Allowed Rolls (if defined by CR or Admin & strictMode is ON)
         const rollDocId = `${section}_${dept}_${sem}`;
         const rollRef = await getDoc(doc(db, 'class_rolls', rollDocId));
         
         if (rollRef.exists()) {
             const classRollsData = rollRef.data();
-            const allowedRolls = classRollsData.rolls || [];
+            const isStrictMode = classRollsData.strictMode === true;
             
-            if (allowedRolls.length > 0) {
-                const isAllowed = allowedRolls.some((r: any) => {
-                    const val = typeof r === 'object' ? r.value : r;
-                    return val.toString() === roll.trim();
-                });
+            if (isStrictMode) {
+                const allowedRolls = classRollsData.rolls || [];
                 
-                if (!isAllowed) {
-                    throw new Error(`Board Roll ${roll} is not permitted to register for ${dept} ${sem}. Contact your CR/Admin to add you.`);
+                if (allowedRolls.length > 0) {
+                    const isAllowed = allowedRolls.some((r: any) => {
+                        const val = typeof r === 'object' ? r.value : r;
+                        return val.toString() === roll.trim();
+                    });
+                    
+                    if (!isAllowed) {
+                        throw new Error(`Board Roll ${roll} is not permitted to register for ${dept} ${sem}. Contact your CR/Admin to add you.`);
+                    }
                 }
             }
         }

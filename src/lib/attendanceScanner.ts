@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, query, collection, where, getDocs, serverTimestamp, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 
@@ -19,7 +19,8 @@ export interface QRPayload {
     dept: string;
     sem: string;
     section: string;
-    t: number;    // timestamp to prevent reuse
+    version?: string;
+    t?: number;      // legacy timestamp field (ignored now)
 }
 
 /**
@@ -63,23 +64,61 @@ export async function getCollegeGPSConfig(): Promise<CollegeGPSConfig | null> {
 }
 
 /**
- * Auto-detects the current period based on time and routine.
- * For simplicity, we just look up the routine for the given class and see what fits the current time.
+ * Parse time strings like "09:45 AM" or "09:00 AM-09:45 AM" to minutes since midnight.
+ * Returns start minutes. For ranges, returns { start, end }.
  */
-export async function detectCurrentPeriod(classId: string): Promise<string | null> {
+function parseTimeRange(timeStr: string): { start: number; end: number } {
+    const parseToMins = (tStr: string): number => {
+        const parts = tStr.trim().split(/\s+/);
+        const timePart = parts[0];
+        const modifier = parts[1]?.toUpperCase();
+        const [hoursStr, minsStr] = timePart.split(':');
+        let hours = parseInt(hoursStr, 10);
+        const mins = parseInt(minsStr || '0', 10);
+        
+        if (modifier) {
+            if (hours === 12 && modifier === 'AM') hours = 0;
+            if (hours < 12 && modifier === 'PM') hours += 12;
+        }
+        return hours * 60 + mins;
+    };
+
+    const rangeParts = timeStr.split('-').map(s => s.trim());
+    if (rangeParts.length >= 2) {
+        return { start: parseToMins(rangeParts[0]), end: parseToMins(rangeParts[1]) };
+    }
+    const mins = parseToMins(timeStr);
+    return { start: mins, end: mins + 45 }; // Default 45-min period
+}
+
+/**
+ * Detects the currently active period from the routine.
+ * Returns the period time string and subject if a class is running now, or null if not.
+ */
+export async function detectActivePeriod(classId: string): Promise<{ periodKey: string; subject: string } | null> {
     try {
         const routineDoc = await getDoc(doc(db, 'routines', classId));
         if (!routineDoc.exists()) return null;
         
         const routine = routineDoc.data().schedule || {};
         const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-        const currentDayIndex = new Date().getDay();
-        const currentDay = days[currentDayIndex];
+        const now = new Date();
+        const currentDay = days[now.getDay()];
         
         const periods = routine[currentDay] || [];
         if (periods.length === 0) return null;
 
-        return periods[0].time; // Fallback to first period if exact time matching isn't robust
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+        const BUFFER_MINS = 10; // Allow scanning 10 min before/after
+
+        for (const period of periods) {
+            const { start, end } = parseTimeRange(period.time);
+            if (currentMins >= (start - BUFFER_MINS) && currentMins <= (end + BUFFER_MINS)) {
+                return { periodKey: period.time, subject: period.subject || 'Unknown' };
+            }
+        }
+
+        return null; // No active period right now
     } catch (e) {
         console.error("Error detecting period:", e);
         return null;
@@ -145,11 +184,11 @@ async function getCurrentLocation(): Promise<LocationCoords> {
 }
 
 /**
- * Validates QR, checks location, and submits attendance.
+ * Validates QR, checks if class is running, checks location, and submits attendance.
  */
 export async function processQRScan(
     qrText: string, 
-    userProfile: any, 
+    userProfile: any, // eslint-disable-line @typescript-eslint/no-explicit-any
     onProgress: (msg: string) => void
 ): Promise<{ success: boolean; message: string }> {
     try {
@@ -165,21 +204,39 @@ export async function processQRScan(
             return { success: false, message: "Not a valid attendance QR code." };
         }
 
-        // Validate timestamp (e.g. valid for 60 minutes max)
-        if (payload.t) {
-            const ageMs = Date.now() - payload.t;
-            if (ageMs > 60 * 60 * 1000) {
-                return { success: false, message: "This QR code has expired." };
-            }
-        }
-
         // Validate class match
         if (payload.dept !== userProfile.dept || 
             payload.sem !== userProfile.sem || 
             payload.section !== userProfile.section) {
-            return { success: false, message: "This QR code belongs to a different class." };
+            return { success: false, message: "This QR code belongs to a different class. Check your department, semester, and section." };
         }
 
+        // Check if a class is actively running right now
+        onProgress("Checking class schedule...");
+        const classId = `${userProfile.section}_${userProfile.dept}_${userProfile.sem}`.replace(/\s+/g, '_').toLowerCase();
+        const activePeriod = await detectActivePeriod(classId);
+        
+        if (!activePeriod) {
+            return { 
+                success: false, 
+                message: "No class is running right now. Attendance can only be recorded during active class periods."
+            };
+        }
+
+        const { periodKey } = activePeriod;
+        const todayStr = new Date().toISOString().split('T')[0];
+
+        // Check for duplicate scan (already scanned for this period today)
+        onProgress("Checking for existing record...");
+        const cleanPeriod = periodKey.replace(/[^a-zA-Z0-9]/g, '');
+        const recordId = `${userProfile.roll || userProfile.boardRoll}_${todayStr}_${cleanPeriod}`;
+        const existingDoc = await getDoc(doc(db, 'attendance_sessions', recordId));
+        
+        if (existingDoc.exists()) {
+            return { success: false, message: "You have already scanned for this period. Attendance is already recorded." };
+        }
+
+        // GPS validation
         onProgress("Fetching location policy...");
         const gpsConfig = await getCollegeGPSConfig();
         
@@ -196,51 +253,28 @@ export async function processQRScan(
         if (distance > gpsConfig.radius) {
             return { 
                 success: false, 
-                message: `You are too far from the college campus (${Math.round(distance)}m). You must be within ${gpsConfig.radius}m.`
+                message: `You are too far from the college campus (${Math.round(distance)}m away). You must be within ${gpsConfig.radius}m to scan.`
             };
         }
 
-        onProgress("Detecting current class period...");
-        const classId = `${userProfile.section}_${userProfile.dept}_${userProfile.sem}`.replace(/\s+/g, '_').toLowerCase();
-        
-        // Find current period, default to an generic period string if not found
-        // The admin can merge it to the active class session
-        const currentPeriodKey = await detectCurrentPeriod(classId) || "Live_Scan_Queue";
-        
-        const todayStr = new Date().toISOString().split('T')[0];
-        
         onProgress("Recording attendance...");
         
-        // We write to attendance_sessions (CR manager reads this as the live buffer)
-        const sessionId = `${classId}_${todayStr}_${currentPeriodKey}`;
-        
-        const recordId = `${sessionId}_${userProfile.uid}`;
-        
-        // Read if already published
-        // Check if attendance_publish has this date/period marked as published
-        const publishDocRef = doc(db, 'attendance_publish', sessionId);
-        const publishDoc = await getDoc(publishDocRef);
-        if (publishDoc.exists() && publishDoc.data().published) {
-             return { success: false, message: "Attendance for this period has already been finalized by the CR." };
-        }
-
-        // Add to active attendance_sessions buffer
+        // Write to attendance_sessions (live buffer for CR to review)
         const sessionRef = doc(db, 'attendance_sessions', recordId);
         
         await setDoc(sessionRef, {
-            id: recordId,
-            sessionId: sessionId,
             uid: userProfile.uid,
             studentName: userProfile.name,
-            boardRoll: userProfile.boardRoll || userProfile.roll || "Unknown",
+            boardRoll: (userProfile.roll || userProfile.boardRoll || "Unknown").toString(),
             dept: userProfile.dept,
             sem: userProfile.sem,
             section: userProfile.section,
             date: todayStr,
-            period: currentPeriodKey,
+            period: periodKey,
             status: 'present',
             scannedAt: serverTimestamp(),
             manualEntry: false,
+            scanMethod: 'qr',
             location: {
                 latitude: studentLocation.latitude,
                 longitude: studentLocation.longitude,
@@ -258,4 +292,3 @@ export async function processQRScan(
         return { success: false, message: e.message || "An unexpected error occurred." };
     }
 }
-

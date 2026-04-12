@@ -8,6 +8,7 @@ import { secureUploadWithProgress, deleteUploadedFiles } from '@/lib/uploadServi
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '@/lib/cropImage';
 import ProfileAttendanceStats from './ProfileAttendanceStats';
+import ApplyCRModal from './ApplyCRModal';
 
 export default function ProfileView() {
     const { user, userProfile, updateUserProfile } = useAuth();
@@ -24,6 +25,7 @@ export default function ProfileView() {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showCRModal, setShowCRModal] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Crop states
@@ -417,7 +419,29 @@ export default function ProfileView() {
                         })}
                     </div>
                 </div>
+
+                {/* CR Application Section */}
+                {userProfile.role !== 'admin' && !userProfile.isCR && (
+                    <div className="mt-8 mb-4 border-2 border-black dark:border-zinc-800 bg-purple-50 dark:bg-purple-950/20 p-6 flex flex-col items-center text-center">
+                        <Shield className="w-8 h-8 text-purple-600 dark:text-purple-400 mb-3" />
+                        <h3 className="font-black uppercase tracking-wider text-sm mb-2">Want to become a CR?</h3>
+                        <p className="text-xs font-mono opacity-70 max-w-md mb-4">
+                            Class Representatives can manage allowed board rolls and publish official notices for their department and semester.
+                        </p>
+                        <button 
+                            onClick={() => setShowCRModal(true)}
+                            className="bg-black text-white dark:bg-white dark:text-black font-bold uppercase text-xs px-6 py-2.5 hover:opacity-80 transition-opacity"
+                        >
+                            Apply for CR Role
+                        </button>
+                    </div>
+                )}
             </div>
+
+            <ApplyCRModal 
+                isOpen={showCRModal} 
+                onClose={() => setShowCRModal(false)} 
+            />
         </div>
     );
 }
