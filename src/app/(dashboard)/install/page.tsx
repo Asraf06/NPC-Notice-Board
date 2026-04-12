@@ -27,6 +27,7 @@ export default function InstallPage() {
     const [currentApk, setCurrentApk] = useState<ApkRelease | null>(null);
     const [oldApk, setOldApk] = useState<ApkRelease | null>(null);
     const [loading, setLoading] = useState(true);
+    const [downloadingApkUrl, setDownloadingApkUrl] = useState<string | null>(null);
 
     const [nativeVersion, setNativeVersion] = useState<string | null>(null);
 
@@ -65,23 +66,51 @@ export default function InstallPage() {
 
     const isUpdateAvailable = currentApk && nativeVersion && currentApk.version && currentApk.version !== nativeVersion;
 
-    // Helper to force APK download header instead of zip
-    const getDownloadUrl = (url: string) => {
-        if (!url) return url;
+    // Helper to force APK download header instead of zip and specify explicit filename
+    const handleDownload = async (url: string, e: React.MouseEvent) => {
+        e.preventDefault();
+        if (!url || downloadingApkUrl) return;
+        
         try {
-            const u = new URL(url);
-            if (u.hostname.includes('imagekit.io')) {
-                u.searchParams.set('ik-attachment', 'true');
-                return u.toString();
-            }
-            if (u.hostname.includes('cloudinary.com') && url.includes('/upload/')) {
-                if (!url.includes('fl_attachment')) {
-                    return url.replace('/upload/', '/upload/fl_attachment/');
+            setDownloadingApkUrl(url);
+            
+            let fetchUrl = url;
+            try {
+                const u = new URL(url);
+                if (u.hostname.includes('imagekit.io')) {
+                    u.searchParams.set('ik-attachment', 'true');
+                    fetchUrl = u.toString();
+                } else if (u.hostname.includes('cloudinary.com') && url.includes('/upload/')) {
+                    if (!url.includes('fl_attachment')) {
+                        fetchUrl = url.replace('/upload/', '/upload/fl_attachment/');
+                    }
                 }
-            }
-            return url;
-        } catch {
-            return url;
+            } catch {}
+
+            showToast("Preparing download, please wait...", "info");
+            
+            const response = await fetch(fetchUrl);
+            if (!response.ok) throw new Error('Network response was not ok');
+            
+            const blob = await response.blob();
+            const objectUrl = window.URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = objectUrl;
+            a.download = 'npc-notice-board.apk'; // Force strictly this name
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            setTimeout(() => window.URL.revokeObjectURL(objectUrl), 100);
+            showToast("Download started successfully!", "success");
+            
+        } catch (error) {
+            console.error("Download failed:", error);
+            showToast("Direct download failed. Opening file in new tab...", "error");
+            window.open(url, '_blank'); // fallback
+        } finally {
+            setDownloadingApkUrl(null);
         }
     };
 
@@ -119,16 +148,14 @@ export default function InstallPage() {
                                         </div>
                                     </div>
 
-                                    <a
-                                        href={getDownloadUrl(currentApk.url)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="w-full mt-3 py-3 bg-black text-white dark:bg-white dark:text-black font-black uppercase text-sm flex items-center justify-center gap-2 border-2 border-black shadow-[4px_4px_0px_0px_rgba(147,51,234,0.5)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all"
-                                        download
+                                    <button
+                                        onClick={(e) => handleDownload(currentApk.url, e)}
+                                        disabled={downloadingApkUrl === currentApk.url}
+                                        className="w-full mt-3 py-3 bg-black text-white dark:bg-white dark:text-black font-black uppercase text-sm flex items-center justify-center gap-2 border-2 border-black shadow-[4px_4px_0px_0px_rgba(147,51,234,0.5)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <Download className="w-4 h-4" />
-                                        {isUpdateAvailable ? 'Update App' : 'Download APK'}
-                                    </a>
+                                        {downloadingApkUrl === currentApk.url ? 'Preparing...' : (isUpdateAvailable ? 'Update App' : 'Download APK')}
+                                    </button>
                                 </div>
                             ) : (
                                 <div className="text-sm border-2 border-dashed border-gray-400 p-3 text-center opacity-60">
@@ -146,16 +173,14 @@ export default function InstallPage() {
                                         </div>
                                     </div>
 
-                                    <a
-                                        href={getDownloadUrl(oldApk.url)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="w-full mt-3 py-2 bg-transparent hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black font-black uppercase text-xs flex items-center justify-center gap-2 border-2 border-black dark:border-white transition-all"
-                                        download
+                                    <button
+                                        onClick={(e) => handleDownload(oldApk.url, e)}
+                                        disabled={downloadingApkUrl === oldApk.url}
+                                        className="w-full mt-3 py-2 bg-transparent hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black font-black uppercase text-xs flex items-center justify-center gap-2 border-2 border-black dark:border-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <Download className="w-4 h-4" />
-                                        Download Static/Older
-                                    </a>
+                                        {downloadingApkUrl === oldApk.url ? 'Preparing...' : 'Download Static/Older'}
+                                    </button>
                                 </div>
                             )}
                         </div>
