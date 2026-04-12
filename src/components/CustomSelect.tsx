@@ -25,9 +25,9 @@ export default function CustomSelect({ options, value, onChange, placeholder = '
             <button
                 type="button"
                 onClick={() => setIsOpen(true)}
-                className={`flex items-center justify-between gap-2 text-left ${className}`}
+                className={`flex items-center justify-between gap-2 text-left min-w-0 ${className}`}
             >
-                <span className="truncate flex-1">{currentLabel}</span>
+                <span className="truncate flex-1 min-w-0">{currentLabel}</span>
                 <ChevronDown className="w-4 h-4 shrink-0" />
             </button>
 

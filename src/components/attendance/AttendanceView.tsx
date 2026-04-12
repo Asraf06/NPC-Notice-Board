@@ -672,8 +672,9 @@ export default function AttendanceView() {
     }
 
     const filteredRecords = records.filter(r =>
-        r.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.boardRoll.includes(searchQuery)
+        r.status !== 'absent' &&
+        (r.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         r.boardRoll.includes(searchQuery))
     );
 
     const stats = {
@@ -715,8 +716,8 @@ export default function AttendanceView() {
                         </div>
                     </div>
 
-                    <div className="flex flex-col md:flex-row items-start md:items-end gap-3 w-full md:w-auto">
-                        <div className="flex flex-col items-start gap-1 w-full md:w-auto">
+                    <div className="flex flex-col md:flex-row items-start md:items-end gap-3 w-full md:w-auto min-w-0">
+                        <div className="flex flex-col items-start gap-1 w-full md:w-auto min-w-0">
                             <span className="text-[10px] font-black font-mono uppercase tracking-wider text-black/60">Select Date</span>
                             <div className="relative w-full md:w-[150px] flex items-center border-2 border-black bg-white font-mono text-sm font-bold shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] transition-shadow">
                                 <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black pointer-events-none" />
@@ -742,11 +743,11 @@ export default function AttendanceView() {
                             </div>
                         </div>
 
-                        <div className="flex flex-col items-start gap-1 w-full md:w-auto">
+                        <div className="flex flex-col items-start gap-1 w-full md:w-auto min-w-0">
                             <span className="text-[10px] font-black font-mono uppercase tracking-wider text-black/60">Select Period / Subject</span>
-                            <div className="flex items-center gap-2 w-full">
+                            <div className="flex items-center gap-2 w-full min-w-0">
                                 <CustomSelect 
-                                    className="w-full md:w-[280px] px-3 py-2 border-2 border-black bg-white text-black font-mono text-sm font-bold shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] transition-shadow focus:outline-none appearance-none"
+                                    className="w-full md:w-[280px] min-w-0 px-3 py-2 border-2 border-black bg-white text-black font-mono text-sm font-bold shadow-[2px_2px_0px_rgba(0,0,0,1)] flex-1 hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] transition-shadow focus:outline-none appearance-none"
                                     value={selectedPeriod}
                                     onChange={setSelectedPeriod}
                                     options={resolvedPeriods.length === 0 ? [{ value: '', label: 'No Classes Scheduled' }] : resolvedPeriods.map(rp => ({ value: rp.key, label: rp.isGroup ? `🔗 ${rp.displayLabel}` : rp.displayLabel }))}
@@ -776,7 +777,7 @@ export default function AttendanceView() {
                 />
                 <SectionTab
                     label="📋 Attendance Sheet"
-                    badge={stats.total}
+                    badge={stats.present + stats.late}
                     active={activeSection === 'attendance-sheet'}
                     onClick={() => setActiveSection('attendance-sheet')}
                 />

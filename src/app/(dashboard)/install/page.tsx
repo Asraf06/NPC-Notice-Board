@@ -65,6 +65,26 @@ export default function InstallPage() {
 
     const isUpdateAvailable = currentApk && nativeVersion && currentApk.version && currentApk.version !== nativeVersion;
 
+    // Helper to force APK download header instead of zip
+    const getDownloadUrl = (url: string) => {
+        if (!url) return url;
+        try {
+            const u = new URL(url);
+            if (u.hostname.includes('imagekit.io')) {
+                u.searchParams.set('ik-attachment', 'true');
+                return u.toString();
+            }
+            if (u.hostname.includes('cloudinary.com') && url.includes('/upload/')) {
+                if (!url.includes('fl_attachment')) {
+                    return url.replace('/upload/', '/upload/fl_attachment/');
+                }
+            }
+            return url;
+        } catch {
+            return url;
+        }
+    };
+
     return (
         <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
             <h1 className="text-2xl md:text-3xl font-black uppercase tracking-wider border-b-4 border-black dark:border-white pb-2">
@@ -100,7 +120,7 @@ export default function InstallPage() {
                                     </div>
 
                                     <a
-                                        href={currentApk.url}
+                                        href={getDownloadUrl(currentApk.url)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="w-full mt-3 py-3 bg-black text-white dark:bg-white dark:text-black font-black uppercase text-sm flex items-center justify-center gap-2 border-2 border-black shadow-[4px_4px_0px_0px_rgba(147,51,234,0.5)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all"
@@ -127,7 +147,7 @@ export default function InstallPage() {
                                     </div>
 
                                     <a
-                                        href={oldApk.url}
+                                        href={getDownloadUrl(oldApk.url)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="w-full mt-3 py-2 bg-transparent hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black font-black uppercase text-xs flex items-center justify-center gap-2 border-2 border-black dark:border-white transition-all"
