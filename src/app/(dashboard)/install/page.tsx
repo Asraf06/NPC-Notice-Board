@@ -87,7 +87,7 @@ export default function InstallPage() {
                 }
             } catch {}
 
-            showToast("Preparing download, please wait...", "info");
+            showToast("Preparing download, please wait...");
             
             const response = await fetch(fetchUrl);
             if (!response.ok) throw new Error('Network response was not ok');
@@ -103,11 +103,11 @@ export default function InstallPage() {
             document.body.removeChild(a);
             
             setTimeout(() => window.URL.revokeObjectURL(objectUrl), 100);
-            showToast("Download started successfully!", "success");
+            showToast("Download started successfully!");
             
         } catch (error) {
             console.error("Download failed:", error);
-            showToast("Direct download failed. Opening file in new tab...", "error");
+            showToast("Direct download failed. Opening file in new tab...");
             window.open(url, '_blank'); // fallback
         } finally {
             setDownloadingApkUrl(null);
