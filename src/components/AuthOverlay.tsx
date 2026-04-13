@@ -88,9 +88,17 @@ export default function AuthOverlay() {
     const [lockReportSending, setLockReportSending] = useState(false);
     const [lockReportSent, setLockReportSent] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(false);
+    const [isCurrentlyOffline, setIsCurrentlyOffline] = useState(false);
 
     // Fetch departments and sections from Firestore
     useEffect(() => {
+        // Offline check setup
+        setIsCurrentlyOffline(!navigator.onLine);
+        const onOffline = () => setIsCurrentlyOffline(true);
+        const onOnline = () => setIsCurrentlyOffline(false);
+        window.addEventListener('offline', onOffline);
+        window.addEventListener('online', onOnline);
+
         async function fetchData() {
             try {
                 const qDept = query(collection(db, 'departments'), orderBy('name'));
@@ -112,11 +120,20 @@ export default function AuthOverlay() {
                     setSections(secNames);
                     setProfileSection(secNames[0]);
                 }
-            } catch {
-                // Fallback sections already set
+            } catch (error) {
+                console.error("Failed to fetch depts/sections", error);
             }
         }
-        fetchData();
+        
+        // Don't attempt to fetch if offline, it will hang
+        if (navigator.onLine) {
+            fetchData();
+        }
+
+        return () => {
+            window.removeEventListener('offline', onOffline);
+            window.removeEventListener('online', onOnline);
+        };
     }, []);
 
     // Pre-fill name from Google account
@@ -249,7 +266,20 @@ export default function AuthOverlay() {
 
     return (
         <div className="fixed inset-0 z-[200] bg-[#f9fafb]/50 dark:bg-black/50 backdrop-blur-md flex items-center justify-center p-4 grid-bg">
-            <div className="w-full max-w-sm bg-white dark:bg-black border-2 border-black dark:border-white p-8 relative shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_#A655F7] text-black dark:text-white">
+            <div className="w-full max-w-sm bg-white dark:bg-black border-2 border-black dark:border-white p-8 relative shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_#A655F7] text-black dark:text-white overflow-hidden">
+
+                {/* OFFLINE BLOCKER */}
+                {isCurrentlyOffline && authStep !== 'authenticated' && (
+                    <div className="absolute inset-0 z-50 bg-white dark:bg-black flex flex-col items-center justify-center p-8 text-center bg-opacity-95 dark:bg-opacity-95 backdrop-blur-sm">
+                        <AlertCircle className="w-16 h-16 text-red-500 mb-4 mx-auto" />
+                        <h2 className="text-2xl font-bold uppercase mb-2">You are Offline</h2>
+                        <p className="opacity-70 text-sm mb-6">
+                            An internet connection is required to log in or register. Please check your connection and try again.
+                        </p>
+                        <div className="loader mx-auto" />
+                        <p className="mt-4 text-xs font-bold uppercase tracking-widest opacity-50 text-black dark:text-white">Waiting for connection...</p>
+                    </div>
+                )}
 
                 {/* LOADING STATE */}
                 {authStep === 'loading' && (
