@@ -269,7 +269,7 @@ export default function AuthOverlay() {
             <div className="w-full max-w-sm bg-white dark:bg-black border-2 border-black dark:border-white p-8 relative shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_#A655F7] text-black dark:text-white overflow-hidden">
 
                 {/* OFFLINE BLOCKER */}
-                {isCurrentlyOffline && authStep !== 'authenticated' && (
+                {isCurrentlyOffline && (
                     <div className="absolute inset-0 z-50 bg-white dark:bg-black flex flex-col items-center justify-center p-8 text-center bg-opacity-95 dark:bg-opacity-95 backdrop-blur-sm">
                         <AlertCircle className="w-16 h-16 text-red-500 mb-4 mx-auto" />
                         <h2 className="text-2xl font-bold uppercase mb-2">You are Offline</h2>
