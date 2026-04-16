@@ -12,7 +12,6 @@ import InstallPrompt from '@/components/InstallPrompt';
 import SectionMigrationScreen from '@/components/SectionMigrationScreen';
 import OfflineBanner from '@/components/OfflineBanner';
 import QRScannerModal from '@/components/attendance/QRScannerModal';
-
 import { usePathname } from 'next/navigation';
 
 // Routes where bottom nav should be hidden (utility/detail pages)

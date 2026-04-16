@@ -157,16 +157,23 @@ export default function AttendanceView() {
 
         // Helper to parse time strings like "09:45 AM" or "14:30" or "09:45-10:30" to minutes
         const parseTimeToMins = (tStr: string) => {
+            if (!tStr) return 0;
             let [time, modifier] = tStr.trim().split(/\s+/);
             if (!time) return 0;
-            let [hours, mins] = time.split(':').map(Number); // eslint-disable-line prefer-const
+            let [hours, mins] = time.split(/[:\.]/).map(Number); // Support both 10:30 and 10.30
             
             if (modifier) {
                 modifier = modifier.toUpperCase();
                 if (hours === 12 && modifier === 'AM') hours = 0;
                 if (hours < 12 && modifier === 'PM') hours += 12;
+            } else {
+                // Heuristic: Without AM/PM markers, assume hours 1-6 are PM (13:00 - 18:00) 
+                // because university classes do not happen at 1:00 AM.
+                if (hours >= 1 && hours <= 6) {
+                    hours += 12;
+                }
             }
-            return hours * 60 + (mins || 0);
+            return (hours || 0) * 60 + (mins || 0);
         };
 
         // Pre-select period using resolved periods. If today, try to match current time.
@@ -183,8 +190,8 @@ export default function AttendanceView() {
                     // Use the first raw period's start and last raw period's end for time matching
                     const firstTime = rp.rawPeriods[0];
                     const lastTime = rp.rawPeriods[rp.rawPeriods.length - 1];
-                    const startParts = firstTime.split('-').map((s: string) => s.trim());
-                    const endParts = lastTime.split('-').map((s: string) => s.trim());
+                    const startParts = firstTime.split(/[-–—]+/).map((s: string) => s.trim());
+                    const endParts = lastTime.split(/[-–—]+/).map((s: string) => s.trim());
 
                     if (startParts.length >= 1 && endParts.length >= 2) {
                         const startMins = parseTimeToMins(startParts[0]);
@@ -195,6 +202,7 @@ export default function AttendanceView() {
                             break;
                         }
                         
+                        // If class hasn't started yet, find the closest upcoming one
                         if (startMins > curMins) {
                             const diff = startMins - curMins;
                             if (diff < minDiff) {
@@ -207,7 +215,9 @@ export default function AttendanceView() {
                 
                 // Fallback: select last resolved period if all are past
                 const lastResolved = resolved[resolved.length - 1];
-                const lastTimePart = lastResolved.rawPeriods[lastResolved.rawPeriods.length - 1].split('-')[1] || '0:0';
+                const lastTimeParts = lastResolved.rawPeriods[lastResolved.rawPeriods.length - 1].split(/[-–—]+/);
+                const lastTimePart = lastTimeParts.length > 1 ? lastTimeParts[1] : '0:0';
+                
                 if (minDiff === Infinity && curMins > parseTimeToMins(lastTimePart.trim())) {
                     foundKey = lastResolved.key;
                 }
@@ -229,9 +239,19 @@ export default function AttendanceView() {
         const loadClassData = async () => {
             if (!userProfile.dept || !userProfile.sem) return;
             const classDocId = `${userProfile.dept}_${userProfile.sem}`;
+            const rollDocId = `${userProfile.section}_${userProfile.dept}_${userProfile.sem}`;
 
             try {
-                // 1. Auto-build roster from ALL registered students in this dept+sem
+                // 1. Combine 'students' and 'class_rolls' so unregistered students can be manually marked
+
+                // A: Fetch allowed rolls from admin
+                const classRollsDoc = await getDoc(doc(db, 'class_rolls', rollDocId));
+                let allowedRollsMaps: Array<{ roll: string | number, name?: string }> = [];
+                if (classRollsDoc.exists()) {
+                    allowedRollsMaps = classRollsDoc.data().rolls || [];
+                }
+
+                // B: Fetch all registered students in this dept+sem
                 const studentsQuery = query(
                     collection(db, 'students'),
                     where('dept', '==', userProfile.dept),
@@ -239,21 +259,57 @@ export default function AttendanceView() {
                 );
                 const studentsSnap = await getDocs(studentsQuery);
                 
+                // Map registered students by boardRoll for fast O(1) lookup
+                const registeredStudentsMap = new Map<string, any>();
                 if (!studentsSnap.empty) {
-                    const roster: StudentListRecord[] = studentsSnap.docs
-                        .map(d => {
-                            const data = d.data();
-                            return {
-                                id: d.id,
-                                name: data.name || 'Unknown',
-                                boardRoll: (data.roll || '').toString(),
-                            };
-                        })
-                        .filter(s => s.boardRoll) // skip empty rolls
-                        .sort((a, b) => parseInt(a.boardRoll) - parseInt(b.boardRoll));
-                    
-                    setStudentList(roster);
+                    studentsSnap.forEach(d => {
+                        const data = d.data();
+                        if (data.roll) {
+                            registeredStudentsMap.set(data.roll.toString(), { id: d.id, ...data });
+                        }
+                    });
                 }
+
+                // C: Merge them to build the definitive roster
+                const roster: StudentListRecord[] = [];
+                
+                // Add all authorized students first (whether registered or not)
+                allowedRollsMaps.forEach((r: any) => {
+                    if (r == null) return;
+                    
+                    // The Allowed Rolls DB saves objects as { value: 101 } or sometimes primitive "101"
+                    const rollStr = typeof r === 'object' ? r.value?.toString() : r.toString();
+                    if (!rollStr) return;
+                    
+                    if (registeredStudentsMap.has(rollStr)) {
+                        const regStudent = registeredStudentsMap.get(rollStr);
+                        roster.push({
+                            id: regStudent.id,
+                            name: regStudent.name || 'Unknown',
+                            boardRoll: rollStr,
+                        });
+                        registeredStudentsMap.delete(rollStr); // Pop from map
+                    } else {
+                        // Student is verified by admin but hasn't created an app account yet!
+                        roster.push({
+                            id: `unreg_${rollStr}`,
+                            name: r.name || 'Unregistered Student',
+                            boardRoll: rollStr,
+                        });
+                    }
+                });
+
+                // Add any registered students who slipped through (in case Admin turned off Strict Mode)
+                registeredStudentsMap.forEach((regStudent, rollStr) => {
+                    roster.push({
+                        id: regStudent.id,
+                        name: regStudent.name || 'Unknown',
+                        boardRoll: rollStr,
+                    });
+                });
+
+                roster.sort((a, b) => parseInt(a.boardRoll) - parseInt(b.boardRoll));
+                setStudentList(roster);
 
                 // 2. Load period groups config (kept in attendance_metadata)
                 const metaDoc = await getDoc(doc(db, 'attendance_metadata', classDocId));

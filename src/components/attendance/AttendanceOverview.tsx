@@ -5,7 +5,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Calendar as CalendarIcon, Clock, AlertTriangle, CheckCircle, ChevronLeft, ChevronRight, Info, ExternalLink, ArrowRight } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, AlertTriangle, CheckCircle, ChevronLeft, ChevronRight, Info, ExternalLink, ArrowRight, Palmtree } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface AttendanceRecord {
@@ -20,10 +20,19 @@ interface AttendanceRecord {
     status: 'present' | 'absent' | 'late';
 }
 
+interface HolidayRecord {
+    id: string;
+    name: string;
+    startDate: string;
+    endDate?: string;
+    type: string;
+}
+
 export default function AttendanceOverview() {
     const { userProfile, user } = useAuth();
     const router = useRouter();
     const [records, setRecords] = useState<AttendanceRecord[]>([]);
+    const [holidays, setHolidays] = useState<HolidayRecord[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Calendar state
@@ -92,6 +101,30 @@ export default function AttendanceOverview() {
         fetchAttendance();
     }, [user?.uid, userProfile]);
 
+    // Fetch holidays
+    useEffect(() => {
+        const fetchHolidays = async () => {
+            try {
+                const snap = await getDocs(collection(db, 'holidays'));
+                const fetched: HolidayRecord[] = [];
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    fetched.push({
+                        id: doc.id,
+                        name: data.name || 'Holiday',
+                        startDate: data.startDate || '',
+                        endDate: data.endDate || data.startDate || '',
+                        type: data.type || 'gov'
+                    });
+                });
+                setHolidays(fetched);
+            } catch (err) {
+                console.error('Error fetching holidays:', err);
+            }
+        };
+        fetchHolidays();
+    }, []);
+
     // Derived Statistics
     const stats = useMemo(() => {
         const total = records.length;
@@ -141,6 +174,26 @@ export default function AttendanceOverview() {
         };
     }, [records]);
 
+    // Build a map of date -> holiday name for the current month
+    const holidayDateMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        holidays.forEach(h => {
+            const start = h.startDate;
+            const end = h.endDate || start;
+            if (!start) return;
+            // Expand date range into individual dates
+            const startD = new Date(start + 'T00:00:00');
+            const endD = new Date(end + 'T00:00:00');
+            for (let d = new Date(startD); d <= endD; d.setDate(d.getDate() + 1)) {
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                map[`${yyyy}-${mm}-${dd}`] = h.name;
+            }
+        });
+        return map;
+    }, [holidays]);
+
     // Calendar Generation Logic
     const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
     const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
@@ -166,6 +219,14 @@ export default function AttendanceOverview() {
     };
 
     const getDayColorClass = (dateString: string) => {
+        const dObj = new Date(dateString);
+        const isWeekend = dObj.getDay() === 5 || dObj.getDay() === 6; // Friday=5, Saturday=6
+
+        // Holiday dates get a distinct amber style
+        if (holidayDateMap[dateString] || isWeekend) {
+            return 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-400 dark:border-amber-500 font-bold shadow-[2px_2px_0px_rgba(245,158,11,0.5)] z-10';
+        }
+
         const dayStats = stats.dateMap[dateString];
         if (!dayStats || dayStats.total === 0) return 'bg-gray-50 dark:bg-zinc-800 text-gray-400 dark:text-zinc-500 border-gray-100 dark:border-zinc-800 opacity-50';
 
@@ -289,9 +350,13 @@ export default function AttendanceOverview() {
                                 {Array.from({ length: daysInMonth }).map((_, i) => {
                                     const day = i + 1;
                                     const dateString = getDayString(day);
+                                    const dObj = new Date(dateString);
+                                    const isWeekend = dObj.getDay() === 5 || dObj.getDay() === 6;
                                     const hasData = !!stats.dateMap[dateString];
+                                    const isHoliday = !!holidayDateMap[dateString] || isWeekend;
+                                    const holidayName = holidayDateMap[dateString] || "Weekend";
                                     const isSelected = selectedDate === dateString;
-                                    const isClickable = hasData || userProfile?.isCR;
+                                    const isClickable = hasData || isHoliday || userProfile?.isCR;
 
                                     return (
                                         <button
@@ -304,7 +369,7 @@ export default function AttendanceOverview() {
                                                 ${isSelected ? 'scale-110 shadow-[4px_4px_0px_rgba(0,0,0,1)] ring-2 ring-black dark:ring-white rotate-2 z-20' : 'hover:-translate-y-0.5 hover:shadow-[2px_2px_0px_rgba(0,0,0,0.5)]'}
                                                 ${!isClickable ? 'cursor-default' : 'cursor-pointer'}
                                             `}
-                                            title={hasData ? 'Click to view details' : (userProfile?.isCR ? 'Click to manage this day' : 'No records')}
+                                            title={isHoliday ? `Holiday: ${holidayName}` : (hasData ? 'Click to view details' : (userProfile?.isCR ? 'Click to manage this day' : 'No records'))}
                                         >
                                             {day}
                                         </button>
@@ -317,6 +382,7 @@ export default function AttendanceOverview() {
                                 <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-purple-100 border border-purple-400"></div> All Attended</div>
                                 <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-yellow-100 border border-yellow-400"></div> Partial</div>
                                 <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-red-100 border border-red-400"></div> Full Absent</div>
+                                <div className="flex items-center gap-1.5"><div className="w-3 h-3 bg-amber-100 border border-amber-400"></div> Holiday</div>
                             </div>
                         </div>
 
@@ -357,6 +423,16 @@ export default function AttendanceOverview() {
                                                         </div>
                                                     </div>
                                                 ))}
+                                            </div>
+                                        ) : selectedDate && (holidayDateMap[selectedDate] || new Date(selectedDate).getDay() === 5 || new Date(selectedDate).getDay() === 6) ? (
+                                            <div className="text-center py-8 flex flex-col items-center gap-3">
+                                                <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 border-2 border-amber-400 flex items-center justify-center">
+                                                    <Palmtree className="w-6 h-6 text-amber-600" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-black uppercase text-amber-600 dark:text-amber-400 text-sm">{holidayDateMap[selectedDate] || "Weekend"}</h4>
+                                                    <p className="text-[10px] font-mono uppercase opacity-50 mt-1">Holiday — No attendance on this day</p>
+                                                </div>
                                             </div>
                                         ) : (
                                             <div className="text-center py-6 text-gray-500 dark:text-zinc-500 font-mono text-sm uppercase font-bold">

@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 
@@ -204,6 +204,36 @@ export async function processQRScan(
             return { success: false, message: "Not a valid attendance QR code." };
         }
 
+        // --- NEW SECURITY CHECK: Weekend & Holiday Blocking ---
+        onProgress("Checking for weekends/holidays...");
+        const todayObj = new Date();
+        const dayOfWeek = todayObj.getDay();
+        
+        if (dayOfWeek === 5 || dayOfWeek === 6) {
+            return { success: false, message: "Attendance is closed. Today is a weekend (Friday/Saturday)." };
+        }
+        
+        const todayStr = todayObj.toISOString().split('T')[0];
+        try {
+            const holidaySnap = await getDocs(collection(db, 'holidays'));
+            let activeHoliday = null;
+            holidaySnap.forEach(holidayDoc => {
+                const h = holidayDoc.data();
+                const start = h.startDate || '';
+                const end = h.endDate || start;
+                if (todayStr >= start && todayStr <= end) {
+                    activeHoliday = h.name;
+                }
+            });
+            
+            if (activeHoliday) {
+                return { success: false, message: `Attendance is closed today for "${activeHoliday}".` };
+            }
+        } catch (hErr) {
+            console.warn("Failed to check holidays during scan", hErr);
+        }
+        // ----------------------------------------------------
+
         // Validate class match
         if (payload.dept !== userProfile.dept || 
             payload.sem !== userProfile.sem || 
@@ -224,7 +254,7 @@ export async function processQRScan(
         }
 
         const { periodKey } = activePeriod;
-        const todayStr = new Date().toISOString().split('T')[0];
+        // todayStr is already defined above
 
         // Check for duplicate scan (already scanned for this period today)
         onProgress("Checking for existing record...");

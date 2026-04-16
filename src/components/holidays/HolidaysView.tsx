@@ -15,23 +15,41 @@ export default function HolidaysView() {
     const [notifOffset, setNotifOffset] = useState(1);
     const [notifHour, setNotifHour] = useState(8);
     const [notifMinute, setNotifMinute] = useState(0);
+    const [notifAmpm, setNotifAmpm] = useState('AM');
+    const [isNativeApp, setIsNativeApp] = useState(false);
 
     useEffect(() => {
+        if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()) {
+            setIsNativeApp(true);
+        }
+        
         const prefStr = localStorage.getItem('holiday_notification_pref');
         if (prefStr) {
             const prefs = JSON.parse(prefStr);
             setNotifEnabled(prefs.enabled !== false);
             if(prefs.offsetDays !== undefined) setNotifOffset(prefs.offsetDays);
-            if(prefs.hour !== undefined) setNotifHour(prefs.hour);
+            
+            if(prefs.hour !== undefined) {
+                const h24 = prefs.hour;
+                setNotifAmpm(h24 >= 12 ? 'PM' : 'AM');
+                let h12 = h24 % 12;
+                if (h12 === 0) h12 = 12;
+                setNotifHour(h12);
+            }
+            
             if(prefs.minute !== undefined) setNotifMinute(prefs.minute);
         }
     }, [showSettings]);
 
     const handleSaveSettings = async () => {
+        let h24 = notifHour;
+        if (notifAmpm === 'PM' && h24 < 12) h24 += 12;
+        if (notifAmpm === 'AM' && h24 === 12) h24 = 0;
+
         const newPrefs = {
             enabled: notifEnabled,
             offsetDays: notifOffset,
-            hour: notifHour,
+            hour: h24,
             minute: notifMinute
         };
         localStorage.setItem('holiday_notification_pref', JSON.stringify(newPrefs));
@@ -139,13 +157,15 @@ export default function HolidaysView() {
                         </h1>
                         <p className="text-xs uppercase font-bold opacity-60 font-mono tracking-widest mt-2 ml-1">Govt & Insitutional Record</p>
                     </div>
-                    <button 
-                        onClick={() => setShowSettings(true)}
-                        className="bg-black text-white dark:bg-white dark:text-black hover:opacity-80 px-4 py-2.5 rounded shadow-sm transition-all flex items-center gap-2 font-bold uppercase text-xs"
-                    >
-                        <Bell className="w-4 h-4" />
-                        Alert Settings
-                    </button>
+                    {isNativeApp && (
+                        <button 
+                            onClick={() => setShowSettings(true)}
+                            className="bg-black text-white dark:bg-white dark:text-black hover:opacity-80 px-4 py-2.5 rounded shadow-sm transition-all flex items-center gap-2 font-bold uppercase text-xs"
+                        >
+                            <Bell className="w-4 h-4" />
+                            Alert Settings
+                        </button>
+                    )}
                 </div>
 
                 
@@ -334,7 +354,7 @@ export default function HolidaysView() {
                                                     <Clock className="w-4 h-4 opacity-50 mr-2 shrink-0" />
                                                     <input 
                                                         type="number" 
-                                                        min="0" max="23" 
+                                                        min="1" max="12" 
                                                         value={notifHour < 10 ? `0${notifHour}` : notifHour}
                                                         onChange={e => setNotifHour(Number(e.target.value))}
                                                         className="w-full bg-transparent p-2 outline-none font-mono text-sm text-center"
@@ -350,8 +370,18 @@ export default function HolidaysView() {
                                                         className="w-full bg-transparent p-2 outline-none font-mono text-sm text-center"
                                                     />
                                                 </div>
+                                                <div className="flex-[0.8] flex items-center border-2 border-black dark:border-white bg-gray-50 dark:bg-zinc-900">
+                                                    <select 
+                                                        value={notifAmpm}
+                                                        onChange={e => setNotifAmpm(e.target.value)}
+                                                        className="w-full h-full bg-transparent p-2 outline-none font-mono text-sm font-bold text-center cursor-pointer appearance-none"
+                                                    >
+                                                        <option value="AM">AM</option>
+                                                        <option value="PM">PM</option>
+                                                    </select>
+                                                </div>
                                             </div>
-                                            <p className="text-[10px] font-mono mt-2 opacity-60">* 24-hour time format (e.g., 08:00 for 8 AM)</p>
+                                            <p className="text-[10px] font-mono mt-2 opacity-60">* Standard 12-hour AM/PM format</p>
                                         </div>
                                     </div>
                                 )}

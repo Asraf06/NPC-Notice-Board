@@ -53,8 +53,12 @@ export default function ManageBoardRollsModal({ isOpen, onClose }: ManageBoardRo
                 const classData = snap.data();
                 setStrictMode(classData.strictMode === true);
                 
-                const reqSnap = await getDoc(doc(db, 'strict_mode_requests', docId));
-                setStrictModeRequestPending(reqSnap.exists() && reqSnap.data().status === 'pending');
+                try {
+                    const reqSnap = await getDoc(doc(db, 'strict_mode_requests', docId));
+                    setStrictModeRequestPending(reqSnap.exists() && reqSnap.data().status === 'pending');
+                } catch (err) {
+                    console.log("Strict mode fetch handled:", err);
+                }
 
                 const data = classData.rolls || [];
                 // Normalize data
