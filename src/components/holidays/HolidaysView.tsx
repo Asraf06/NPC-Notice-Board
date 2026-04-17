@@ -398,6 +398,19 @@ export default function HolidaysView() {
                                         try {
                                             const { LocalNotifications } = await import('@capacitor/local-notifications');
                                             
+                                            // Explicitly create an Android 8+ Notification Channel
+                                            try {
+                                                await LocalNotifications.createChannel({
+                                                    id: 'test_channel',
+                                                    name: 'Test Alerts',
+                                                    description: 'Diagnostic channel for testing',
+                                                    importance: 5,
+                                                    visibility: 1
+                                                });
+                                            } catch (e) {
+                                                console.log("Channel exists", e);
+                                            }
+
                                             const testDate = new Date(new Date().getTime() + 5000); // 5 seconds from now
                                             await LocalNotifications.schedule({
                                                 notifications: [{
@@ -405,7 +418,8 @@ export default function HolidaysView() {
                                                     title: "Test Successful!",
                                                     body: "Your offline notifications are working perfectly.",
                                                     schedule: { at: testDate },
-                                                    sound: 'default'
+                                                    sound: 'default',
+                                                    channelId: 'test_channel'
                                                 }]
                                             });
                                             alert("Scheduled! Minimize the app and wait 5 seconds.");

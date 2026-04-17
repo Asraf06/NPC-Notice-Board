@@ -103,6 +103,19 @@ export async function scheduleHolidayNotifications(holidays: Holiday[]) {
         const { display } = await LocalNotifications.checkPermissions();
         if (display !== 'granted') return;
 
+        // Android 8+ requires a Notification Channel to be explicitly created
+        try {
+            await LocalNotifications.createChannel({
+                id: 'npc_holidays',
+                name: 'Holiday Alerts',
+                description: 'Notifications for upcoming holidays and breaks',
+                importance: 5, // High importance
+                visibility: 1  // Public visibility
+            });
+        } catch (e) {
+            console.log("Channel creation skipped or failed:", e);
+        }
+
         // Clear existing scheduled holiday notifications to avoid duplicates
         const pending = await LocalNotifications.getPending();
         const holidayPendingList = pending.notifications.filter((n: any) => n.extra?.isHoliday);
@@ -148,7 +161,8 @@ export async function scheduleHolidayNotifications(holidays: Holiday[]) {
                     body: prefs.offsetDays === 0 ? `Today is ${holiday.name}. Enjoy your time!` : `${holiday.name} starts tomorrow!`,
                     extra: { isHoliday: true, holidayId: holiday.id },
                     schedule: { at: alertDate },
-                    sound: 'default'
+                    sound: 'default',
+                    channelId: 'npc_holidays'
                 });
             }
         }
