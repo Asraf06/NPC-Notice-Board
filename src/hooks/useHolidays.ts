@@ -95,10 +95,8 @@ export function useHolidays() {
 export async function scheduleHolidayNotifications(holidays: Holiday[]) {
     if (typeof window === 'undefined') return;
     try {
-        const capMod = '@capaci' + 'tor/core';
-        const notifMod = '@capaci' + 'tor/local-notifications';
-        const { Capacitor } = await (Function('m', 'return import(m)')(capMod));
-        const { LocalNotifications } = await (Function('m', 'return import(m)')(notifMod));
+        const { Capacitor } = await import('@capacitor/core');
+        const { LocalNotifications } = await import('@capacitor/local-notifications');
     
         if (!Capacitor.isNativePlatform()) return;
 

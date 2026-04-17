@@ -396,8 +396,7 @@ export default function HolidaysView() {
                                 <button 
                                     onClick={async () => {
                                         try {
-                                            const notifMod = '@capaci' + 'tor/local-notifications';
-                                            const { LocalNotifications } = await (Function('m', 'return import(m)')(notifMod));
+                                            const { LocalNotifications } = await import('@capacitor/local-notifications');
                                             
                                             const testDate = new Date(new Date().getTime() + 5000); // 5 seconds from now
                                             await LocalNotifications.schedule({
