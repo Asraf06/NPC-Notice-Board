@@ -392,6 +392,33 @@ export default function HolidaysView() {
                                 >
                                     <Save className="w-5 h-5 flex-shrink-0" /> Update Config
                                 </button>
+                                
+                                <button 
+                                    onClick={async () => {
+                                        try {
+                                            const notifMod = '@capaci' + 'tor/local-notifications';
+                                            const { LocalNotifications } = await (Function('m', 'return import(m)')(notifMod));
+                                            
+                                            const testDate = new Date(new Date().getTime() + 5000); // 5 seconds from now
+                                            await LocalNotifications.schedule({
+                                                notifications: [{
+                                                    id: Math.floor(Math.random() * 100000),
+                                                    title: "Test Successful!",
+                                                    body: "Your offline notifications are working perfectly.",
+                                                    schedule: { at: testDate },
+                                                    sound: 'default'
+                                                }]
+                                            });
+                                            alert("Scheduled! Minimize the app and wait 5 seconds.");
+                                        } catch (e) {
+                                            alert("Native Error: " + (e as any).message);
+                                        }
+                                    }}
+                                    className="w-full py-3 mt-2 border-2 border-black text-black dark:border-white dark:text-white font-bold uppercase text-xs hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                                >
+                                    Test Alarm (Wait 5 Seconds)
+                                </button>
+
                             </div>
                         </div>
                     </div>
