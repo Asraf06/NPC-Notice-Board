@@ -101,7 +101,7 @@ export default function HolidaysView() {
             // Capacitor apps lack local API routes since they are static exports.
             // We must route the fetch request to the live internet Vercel instance.
             const baseUrl = isNativeApp 
-                ? 'https://npc-notice-board.vercel.app' 
+                ? 'https://npcnoticeboard.vercel.app' 
                 : ''; 
                 
             const res = await fetch(`${baseUrl}/api/admin/test-push`, {
