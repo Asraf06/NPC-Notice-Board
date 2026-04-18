@@ -129,9 +129,14 @@ export async function scheduleHolidayNotifications(holidays: Holiday[]) {
         // Check user preferences for notifications
         // Default: notify 1 day before at 8:00 AM
         const prefStr = localStorage.getItem('holiday_notification_pref');
-        const prefs = prefStr ? JSON.parse(prefStr) : { enabled: true, offsetDays: 1, hour: 8, minute: 0 };
+        const prefs = prefStr ? JSON.parse(prefStr) : { enabled: true, offsetDays: 1, hour: 8, minute: 0, engine: 'offline' };
 
         if (!prefs.enabled) return;
+        
+        // If the user favors Cloud over Offline, we let Vercel handle it. We don't schedule native ones.
+        if (prefs.engine === 'cloud') {
+            return;
+        }
 
         for (const holiday of holidays) {
             if (!holiday.startDate) continue;

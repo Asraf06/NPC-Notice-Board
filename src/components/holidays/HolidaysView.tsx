@@ -1,8 +1,9 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useHolidays, Holiday, scheduleHolidayNotifications } from '@/hooks/useHolidays';
-import { Calendar, CalendarCheck, Settings, X, Save, Clock, ChevronLeft, ChevronRight, Bell } from 'lucide-react';
+import { Calendar, CalendarCheck, Settings, X, Save, Clock, ChevronLeft, ChevronRight, Bell, Cloud, Smartphone } from 'lucide-react';
 import Header from '../Header';
+import { useAuth } from '@/context/AuthContext';
 
 export default function HolidaysView() {
     const { holidays, loading } = useHolidays();
@@ -16,7 +17,14 @@ export default function HolidaysView() {
     const [notifHour, setNotifHour] = useState(8);
     const [notifMinute, setNotifMinute] = useState(0);
     const [notifAmpm, setNotifAmpm] = useState('AM');
+    const [notifEngine, setNotifEngine] = useState<'offline' | 'cloud'>('offline');
+    const [isTestingCloud, setIsTestingCloud] = useState(false);
     const [isNativeApp, setIsNativeApp] = useState(false);
+    
+    // Attempt to get user from auth context safely since we need UID for testing Cloud pushes
+    let auth: any;
+    try { auth = useAuth(); } catch (e) { auth = null; }
+    const userProfile = auth?.userProfile || null;
 
     useEffect(() => {
         if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()) {
@@ -38,6 +46,7 @@ export default function HolidaysView() {
             }
             
             if(prefs.minute !== undefined) setNotifMinute(prefs.minute);
+            if(prefs.engine !== undefined) setNotifEngine(prefs.engine);
         }
     }, [showSettings]);
 
@@ -50,14 +59,58 @@ export default function HolidaysView() {
             enabled: notifEnabled,
             offsetDays: notifOffset,
             hour: h24,
-            minute: notifMinute
+            minute: notifMinute,
+            engine: notifEngine
         };
         localStorage.setItem('holiday_notification_pref', JSON.stringify(newPrefs));
         
         await scheduleHolidayNotifications(holidays);
         
+        // Also subscribe/unsubscribe to the Vercel topic based on Engine
+        if (notifEngine === 'cloud' && notifEnabled) {
+             subscribeToCloudTopic();
+        } else {
+             unsubscribeFromCloudTopic();
+        }
+
         setShowSettings(false);
         alert("Notification preferences saved successfully!");
+    };
+
+    const subscribeToCloudTopic = async () => {
+        try {
+            const { PushNotifications } = await import('@capacitor/push-notifications');
+            await PushNotifications.register();
+        } catch (e) {
+             console.warn("Could not register push:", e);
+        }
+    };
+
+    const unsubscribeFromCloudTopic = async () => {
+       /* Cloud unsubscription would typically happen on server sync, 
+          but for simplicity we just trust the system or local checks */
+    };
+
+    const textCloudSystem = async () => {
+        if (!userProfile?.uid) {
+            alert("Error: You must be logged in to test Cloud Notifications.");
+            return;
+        }
+        setIsTestingCloud(true);
+        try {
+            const res = await fetch('/api/admin/test-push', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetUid: userProfile.uid })
+            });
+            const data = await res.json();
+            if(!res.ok) throw new Error(data.error || 'Server error');
+            alert(data.message);
+        } catch (e: any) {
+            alert("Error testing cloud: " + e.message);
+        } finally {
+            setIsTestingCloud(false);
+        }
     };
 
     const changeMonth = (delta: number) => {
@@ -323,8 +376,8 @@ export default function HolidaysView() {
                             <div className="p-6 space-y-6">
                                 <div className="flex items-center justify-between border-b border-gray-200 dark:border-zinc-800 pb-4">
                                     <div className="flex-1">
-                                        <label className="font-black uppercase text-sm">Enable Local Alerts</label>
-                                        <p className="text-[10px] font-mono opacity-60">Operates 100% offline</p>
+                                        <label className="font-black uppercase text-sm">Enable Holiday Alerts</label>
+                                        <p className="text-[10px] font-mono opacity-60">Get notified about upcoming holidays.</p>
                                     </div>
                                     <label className="relative inline-flex items-center cursor-pointer ml-4">
                                         <input type="checkbox" className="sr-only peer" checked={notifEnabled} onChange={e => setNotifEnabled(e.target.checked)} />
@@ -334,6 +387,31 @@ export default function HolidaysView() {
                                 
                                 {notifEnabled && (
                                     <div className="space-y-5 animate-in slide-in-from-top-2">
+                                    
+                                        <div>
+                                            <label className="block text-xs font-bold uppercase mb-2">Notification Engine</label>
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    onClick={() => setNotifEngine('offline')}
+                                                    className={`flex-1 p-3 border-2 font-black uppercase text-[10px] flex flex-col items-center gap-1 transition-colors ${notifEngine === 'offline' ? 'bg-black text-white dark:bg-white dark:text-black border-black dark:border-white' : 'bg-transparent text-gray-400 border-gray-200 dark:border-zinc-800'}`}
+                                                >
+                                                    <Smartphone className="w-5 h-5 mb-1" />
+                                                    Device Native
+                                                    <span className="font-mono text-[8px] opacity-70 normal-case block font-normal text-center mt-1">(Custom limits, delayed on low-end hardware)</span>
+                                                </button>
+                                                <button 
+                                                    onClick={() => setNotifEngine('cloud')}
+                                                    className={`flex-1 p-3 border-2 font-black uppercase text-[10px] flex flex-col items-center gap-1 transition-colors ${notifEngine === 'cloud' ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-gray-400 border-gray-200 dark:border-zinc-800'}`}
+                                                >
+                                                    <Cloud className="w-5 h-5 mb-1" />
+                                                    Vercel Cloud
+                                                    <span className="font-mono text-[8px] opacity-70 normal-case block font-normal text-center mt-1">(Instant delivery, fixed 08:00 AM server time)</span>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {notifEngine === 'offline' && (
+                                            <div className="p-3 bg-gray-100 dark:bg-zinc-900 border-l-4 border-l-black dark:border-l-white space-y-4">
                                         <div>
                                             <label className="block text-xs font-bold uppercase mb-2">When to notify</label>
                                             <select 
@@ -383,6 +461,8 @@ export default function HolidaysView() {
                                             </div>
                                             <p className="text-[10px] font-mono mt-2 opacity-60">* Standard 12-hour AM/PM format</p>
                                         </div>
+                                        </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -393,6 +473,8 @@ export default function HolidaysView() {
                                     <Save className="w-5 h-5 flex-shrink-0" /> Update Config
                                 </button>
                                 
+                                
+                                {notifEnabled && notifEngine === 'offline' ? (
                                 <button 
                                     onClick={async () => {
                                         try {
@@ -427,10 +509,19 @@ export default function HolidaysView() {
                                             alert("Native Error: " + (e as any).message);
                                         }
                                     }}
-                                    className="w-full py-3 mt-2 border-2 border-black text-black dark:border-white dark:text-white font-bold uppercase text-xs hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+                                    className="w-full py-3 border-2 border-black text-black dark:border-white dark:text-white font-bold uppercase text-xs hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
                                 >
-                                    Test Alarm (Wait 5 Seconds)
+                                    Test Local Offline Alarm (wait 5s)
                                 </button>
+                                ) : notifEnabled && notifEngine === 'cloud' && (
+                                    <button 
+                                        disabled={isTestingCloud}
+                                        onClick={textCloudSystem}
+                                        className="w-full py-3 border-2 border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-500 font-bold uppercase text-xs hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                    >
+                                        {isTestingCloud ? 'Sending...' : 'Test Vercel Cloud Push (Instant)'}
+                                    </button>
+                                )}
 
                             </div>
                         </div>

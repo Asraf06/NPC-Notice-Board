@@ -12,6 +12,7 @@
 import { initializeApp, getApps, cert, type ServiceAccount } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { getMessaging } from 'firebase-admin/messaging';
 
 function getAdminApp() {
     if (getApps().length > 0) {
@@ -41,6 +42,7 @@ const adminApp = getAdminApp();
 // This prevents the build from crashing during Next.js static analysis.
 export const adminDb = adminApp ? getFirestore(adminApp) : new Proxy({}, { get: () => { throw new Error('Firebase Admin DB not initialized'); } }) as any;
 export const adminAuth = adminApp ? getAuth(adminApp) : new Proxy({}, { get: () => { throw new Error('Firebase Admin Auth not initialized'); } }) as any;
+export const adminMessaging = adminApp ? getMessaging(adminApp) : new Proxy({}, { get: () => { throw new Error('Firebase Admin Messaging not initialized'); } }) as any;
 
 /**
  * Fetch upload API keys (ImgBB, Cloudinary) from Firestore using Admin SDK.
