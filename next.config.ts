@@ -16,6 +16,19 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_APP_VERSION: packageJson.version,
     NEXT_PUBLIC_IS_CAPACITOR: isCapacitor ? "true" : "false",
   },
+  // Global CORS headers so Capacitor Android WebView can reach API routes
+  async headers() {
+    return [
+      {
+        source: "/api/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, DELETE, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
+        ],
+      },
+    ];
+  },
   ...(isCapacitor && {
     output: "export",
     images: { unoptimized: true },
