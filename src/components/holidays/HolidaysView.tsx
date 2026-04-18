@@ -29,6 +29,7 @@ export default function HolidaysView() {
     let auth: any;
     try { auth = useAuth(); } catch (e) { auth = null; }
     const userProfile = auth?.userProfile || null;
+    const firebaseUser = auth?.user || null;
 
     useEffect(() => {
         const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.();
@@ -123,12 +124,15 @@ export default function HolidaysView() {
     };
 
     const textCloudSystem = async () => {
-        if (!userProfile?.uid) {
+        if (!userProfile?.uid || !firebaseUser) {
             alert("Error: You must be logged in to test Cloud Notifications.");
             return;
         }
         setIsTestingCloud(true);
         try {
+            // Get a fresh Firebase ID token for server-side auth verification
+            const idToken = await firebaseUser.getIdToken();
+
             // Capacitor apps lack local API routes since they are static exports.
             // We must route the fetch request to the live internet Vercel instance.
             const baseUrl = isNativeApp 
@@ -137,7 +141,10 @@ export default function HolidaysView() {
                 
             const res = await fetch(`${baseUrl}/api/admin/test-push`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${idToken}`
+                },
                 body: JSON.stringify({ targetUid: userProfile.uid })
             });
             const data = await res.json();

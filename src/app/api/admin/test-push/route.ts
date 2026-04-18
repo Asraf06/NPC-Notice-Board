@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { adminDb, adminMessaging } from '../../../../lib/firebaseAdmin';
+import { adminDb, adminMessaging, adminAuth } from '../../../../lib/firebaseAdmin';
 
 // Helper to add CORS headers
 function corsHeaders() {
@@ -17,11 +17,42 @@ export async function OPTIONS() {
 
 export async function POST(request: Request) {
     try {
+        // ── STEP 1: Verify Firebase Auth Token ──
+        const authHeader = request.headers.get('authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return NextResponse.json(
+                { error: 'Unauthorized: Missing auth token.' },
+                { status: 401, headers: corsHeaders() }
+            );
+        }
+
+        const idToken = authHeader.split('Bearer ')[1];
+        let decodedToken;
+        try {
+            decodedToken = await adminAuth.verifyIdToken(idToken);
+        } catch (verifyError: any) {
+            return NextResponse.json(
+                { error: 'Unauthorized: Invalid or expired token.' },
+                { status: 401, headers: corsHeaders() }
+            );
+        }
+
+        const authenticatedUid = decodedToken.uid;
+
+        // ── STEP 2: Parse request body ──
         const body = await request.json();
         const { targetUid, messageContent } = body;
 
         if (!targetUid) {
             return NextResponse.json({ error: 'Missing targetUid' }, { status: 400, headers: corsHeaders() });
+        }
+
+        // ── STEP 3: Ensure user can only test-push to THEMSELVES ──
+        if (authenticatedUid !== targetUid) {
+            return NextResponse.json(
+                { error: 'Forbidden: You can only send test pushes to your own device.' },
+                { status: 403, headers: corsHeaders() }
+            );
         }
 
         // Get the target student's document to find their FCM tokens
@@ -63,3 +94,4 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: e.message || 'Unknown server error.' }, { status: 500, headers: corsHeaders() });
     }
 }
+
