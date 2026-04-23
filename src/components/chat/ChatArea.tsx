@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useUI } from '@/context/UIContext';
-import { Send, Reply, X, CornerUpLeft, Trash2, Pencil, Paperclip, Settings, MessageCircle, Loader2, Type, RotateCcw, Plus, Image as ImageIcon, Film, FileText, CheckCircle2, AlertCircle, Lock } from 'lucide-react';
+import { Send, Reply, X, CornerUpLeft, Trash2, Pencil, Paperclip, Settings, MessageCircle, Loader2, Type, RotateCcw, Plus, Image as ImageIcon, Film, FileText, CheckCircle2, AlertCircle, Lock, Copy } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
 import { ref, update } from 'firebase/database';
 import { secureUploadFile } from '@/lib/uploadService';
@@ -790,7 +790,7 @@ function MessageBubble({
                     )}
                     <div
                         onClick={handleBubbleClick}
-                        className={`${sz.px} ${sz.py} text-sm relative border-2 border-black dark:border-white transition-all duration-300 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] ${bg} cursor-pointer overflow-hidden max-w-full`}
+                        className={`${sz.px} ${sz.py} text-sm relative border-2 border-black dark:border-white transition-all duration-300 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] ${bg} cursor-pointer max-w-full`}
                     >
                         {msg.replyTo && <ReplyPreview data={{ 
                             id: typeof msg.replyTo === 'object' ? (msg.replyTo as any).id : msg.replyTo, 
@@ -823,7 +823,7 @@ function MessageBubble({
                             <p className="font-mono whitespace-pre-wrap leading-relaxed break-words overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{msg.text}</p>
                         )}
                         <p className="text-[8px] opacity-50 mt-2 font-mono text-right">{time}</p>
-                        <BubbleActions onReply={onReply} onUnsend={onUnsend} isMe={isMe} theme="classic" visible={isActionsVisible} />
+                        <BubbleActions onReply={onReply} onUnsend={onUnsend} onCopy={() => { navigator.clipboard.writeText(msg.text || ''); }} isMe={isMe} theme="classic" visible={isActionsVisible} />
                     </div>
                 </div>
             </div>
@@ -846,7 +846,7 @@ function MessageBubble({
                     )}
                     <div
                         onClick={handleBubbleClick}
-                        className={`${sz.px} ${sz.py} text-xs relative font-mono tracking-wide transition-all duration-300 ${bg} cursor-pointer overflow-hidden max-w-full`}
+                        className={`${sz.px} ${sz.py} text-xs relative font-mono tracking-wide transition-all duration-300 ${bg} cursor-pointer max-w-full`}
                     >
                         {msg.replyTo && <ReplyPreview data={{ 
                             id: typeof msg.replyTo === 'object' ? (msg.replyTo as any).id : msg.replyTo, 
@@ -878,7 +878,7 @@ function MessageBubble({
                             <p className="whitespace-pre-wrap leading-relaxed break-words overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{msg.text}</p>
                         )}
                         <p className="text-[9px] opacity-40 mt-3 text-right uppercase font-bold">{time}</p>
-                        <BubbleActions onReply={onReply} onUnsend={onUnsend} isMe={isMe} theme="digital" visible={isActionsVisible} />
+                        <BubbleActions onReply={onReply} onUnsend={onUnsend} onCopy={() => { navigator.clipboard.writeText(msg.text || ''); }} isMe={isMe} theme="digital" visible={isActionsVisible} />
                     </div>
                 </div>
             </div>
@@ -903,7 +903,7 @@ function MessageBubble({
                 )}
                 <div
                     onClick={handleBubbleClick}
-                    className={`${sz.px} ${sz.py} relative transition-all duration-300 hover:scale-[1.01] ${bg} cursor-pointer overflow-hidden max-w-full`}
+                    className={`${sz.px} ${sz.py} relative transition-all duration-300 hover:scale-[1.01] ${bg} cursor-pointer max-w-full`}
                 >
                     {msg.replyTo && <ReplyPreview data={{ 
                         id: typeof msg.replyTo === 'object' ? (msg.replyTo as any).id : msg.replyTo, 
@@ -939,7 +939,7 @@ function MessageBubble({
                         {msg.edited && <span>Edited</span>}
                         <span>{time}</span>
                     </div>
-                    <BubbleActions onReply={onReply} onUnsend={onUnsend} isMe={isMe} theme="modern" visible={isActionsVisible} />
+                    <BubbleActions onReply={onReply} onUnsend={onUnsend} onCopy={() => { navigator.clipboard.writeText(msg.text || ''); }} isMe={isMe} theme="modern" visible={isActionsVisible} />
                 </div>
             </div>
         </div>
@@ -966,7 +966,7 @@ function ReplyPreview({ data, theme, isMe }: { data: any, theme: string, isMe: b
     );
 }
 
-function BubbleActions({ onReply, onUnsend, isMe, theme, visible }: { onReply: () => void, onUnsend: () => void, isMe: boolean, theme: string, visible: boolean }) {
+function BubbleActions({ onReply, onUnsend, onCopy, isMe, theme, visible }: { onReply: () => void, onUnsend: () => void, onCopy: () => void, isMe: boolean, theme: string, visible: boolean }) {
     const isDigital = theme === 'digital';
 
     // Base styles: normally opacity-0, but if visible=true -> opacity-100 and interactive
@@ -990,6 +990,9 @@ function BubbleActions({ onReply, onUnsend, isMe, theme, visible }: { onReply: (
             <div className={chipStyles[theme] || chipStyles.modern}>
                 <button onClick={onReply} className="p-1.5 hover:bg-white/10 rounded-full transition-colors active:scale-90" title="Reply">
                     <CornerUpLeft className={`w-4 h-4 ${isDigital ? 'text-white' : 'text-purple-500'}`} />
+                </button>
+                <button onClick={onCopy} className="p-1.5 hover:bg-white/10 rounded-full transition-colors active:scale-90" title="Copy">
+                    <Copy className={`w-4 h-4 ${isDigital ? 'text-white' : 'text-blue-400'}`} />
                 </button>
                 {isMe && (
                     <button onClick={onUnsend} className="p-1.5 hover:bg-red-500/10 rounded-full transition-colors active:scale-90" title="Delete">
