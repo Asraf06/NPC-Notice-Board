@@ -133,8 +133,12 @@ function DocumentViewerContent() {
         setIsFullscreen(!isFullscreen);
     };
 
-    // Google Docs Viewer URL for PDF files
+    // Appropriate Viewer URL based on file type
     const getViewerUrl = (rawUrl: string) => {
+        const lowerUrl = rawUrl.toLowerCase();
+        if (lowerUrl.match(/\.(doc|docx|xls|xlsx|ppt|pptx)/)) {
+            return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(rawUrl)}`;
+        }
         return `https://docs.google.com/viewer?url=${encodeURIComponent(rawUrl)}&embedded=true`;
     };
 
