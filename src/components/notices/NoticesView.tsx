@@ -340,7 +340,7 @@ export default function NoticesView() {
             'manage_icon': {
                 icon: <ImageIcon className="w-5 h-5 text-white" />,
                 bg: 'bg-blue-600 hover:bg-blue-700',
-                action: () => groupIconRef.current?.click(),
+                action: () => router.push('/social'),
                 desc: 'Group Icon'
             }
         };
