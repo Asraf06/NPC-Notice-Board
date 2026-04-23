@@ -36,6 +36,7 @@ export default function AuthOverlay() {
         updateUserProfile,
         authError,
         clearAuthError,
+        retryConnection,
     } = useAuth();
 
     // UI Context
@@ -162,6 +163,27 @@ export default function AuthOverlay() {
     }, [authStep, user]);
 
     if (authStep === 'authenticated') return null;
+    if (authStep === 'connection-error') {
+        return (
+            <div className="fixed inset-0 z-[200] bg-[#f9fafb]/50 dark:bg-black/50 backdrop-blur-md flex items-center justify-center p-4 grid-bg">
+                <div className="w-full max-w-sm bg-white dark:bg-black border-2 border-black dark:border-white p-8 relative shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_#A655F7] text-black dark:text-white text-center">
+                    <AlertCircle className="w-16 h-16 text-amber-500 mb-4 mx-auto" />
+                    <h2 className="text-xl font-bold uppercase mb-2">Connection Issue</h2>
+                    <p className="text-sm opacity-70 mb-6 leading-relaxed">
+                        Could not connect to the server. This usually fixes itself in a few moments. Please wait or tap retry.
+                    </p>
+                    <div className="loader mx-auto mb-4" />
+                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-50 mb-6">Auto-retrying...</p>
+                    <button
+                        onClick={() => retryConnection()}
+                        className="w-full py-3 bg-black text-white dark:bg-white dark:text-black font-bold uppercase hover:opacity-80 transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] active:translate-y-1 active:shadow-none"
+                    >
+                        Retry Now
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     // --- HANDLERS ---
     const onGoogleLogin = async () => {

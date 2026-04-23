@@ -232,19 +232,27 @@ function DocumentViewerContent() {
             <div className={`flex-1 overflow-hidden relative ${isZoomActive ? 'cursor-grab active:cursor-grabbing' : ''} bg-gray-200 dark:bg-zinc-950`}>
 
                 {fileType === 'pdf' && (
-                    <div ref={pdfScrollRef} className="w-full h-full overflow-y-auto custom-scrollbar flex flex-col">
-                        <div className="locomotive-content-wrapper flex flex-col w-full h-full">
-                            {urlsToRender.map((pdfUrl, index) => (
-                                <div key={index} className="w-full h-full shrink-0 bg-white">
+                    <div ref={pdfScrollRef} className="w-full h-full relative overflow-y-auto custom-scrollbar">
+                        {urlsToRender.length === 1 ? (
+                            <iframe
+                                src={getViewerUrl(urlsToRender[0])}
+                                className="absolute inset-0 w-full h-full border-none bg-white"
+                                title={title}
+                                allowFullScreen
+                            />
+                        ) : (
+                            <div className="flex flex-col w-full h-max space-y-8 p-4 md:p-8 locomotive-content-wrapper">
+                                {urlsToRender.map((pdfUrl, index) => (
                                     <iframe
+                                        key={index}
                                         src={getViewerUrl(pdfUrl)}
-                                        className="w-full h-full border-none block"
+                                        className="w-full h-[90vh] border-2 border-black dark:border-zinc-700 bg-white"
                                         title={`${title} - Part ${index + 1}`}
                                         allowFullScreen
                                     />
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
 

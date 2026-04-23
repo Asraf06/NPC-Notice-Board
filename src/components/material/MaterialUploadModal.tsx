@@ -1,24 +1,26 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, FileUp, Loader2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { updateDoc, doc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { useUI } from '@/context/UIContext';
-import { secureUploadWithProgress } from '@/lib/uploadService';
+import { secureUploadWithProgress, deleteUploadedFiles } from '@/lib/uploadService';
 import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 import CustomSelect from '@/components/CustomSelect';
+import { MaterialData } from '@/components/material/MaterialCard';
 
 interface MaterialUploadModalProps {
     isOpen: boolean;
     onClose: () => void;
     onUploaded: () => void;
     tabNames?: Record<string, string>;
+    editData?: MaterialData | null;
 }
 
-export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNames }: MaterialUploadModalProps) {
+export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNames, editData }: MaterialUploadModalProps) {
     const { userProfile } = useAuth();
     const { showAlert, showToast } = useUI();
     const [uploadMode, setUploadMode] = useState<'file' | 'link'>('file');
@@ -34,6 +36,21 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
     const fileInputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     useSmoothScroll(scrollRef);
+
+    useEffect(() => {
+        if (isOpen && editData) {
+            setMaterialType(editData.type);
+            setSubject(editData.subject);
+            setDescription(editData.description || '');
+            if (editData.service || editData.attachments) {
+                setUploadMode('file');
+                setLinkUrl('');
+            } else {
+                setUploadMode('link');
+                setLinkUrl(editData.url || '');
+            }
+        }
+    }, [isOpen, editData]);
 
     if (!isOpen) return null;
     if (typeof document === 'undefined') return null;
@@ -116,14 +133,13 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
         setIsSubmitting(true);
 
         try {
-            // Handle file upload
-            const uploadedFiles: { url: string; service: string | null; fileId: string | null }[] = [];
-
+            let uploadedFiles: { url: string; service: string | null; fileId: string | null }[] = [];
+            
+            // Handle new file upload if file mode and user selected files
             if (uploadMode === 'file' && selectedFiles.length > 0) {
                 setShowProgress(true);
                 for (let i = 0; i < selectedFiles.length; i++) {
                     const file = selectedFiles[i];
-                    // Progress for multiple files
                     setUploadProgress((i / selectedFiles.length) * 100);
 
                     const uploadResult = await uploadFile(file);
@@ -139,46 +155,100 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
                 }
                 setUploadProgress(100);
 
-                await addDoc(collection(db, 'materials'), {
-                    type: materialType,
-                    subject: subject.trim(),
-                    description: description.trim(),
-                    url: uploadedFiles[0].url,
-                    dept: userProfile.dept,
-                    sem: userProfile.sem,
-                    section: userProfile.section,
-                    author: userProfile.name,
-                    authorUid: userProfile.uid,
-                    timestamp: serverTimestamp(),
-                    // File deletion metadata
-                    service: uploadedFiles[0].service,
-                    fileId: uploadedFiles[0].fileId,
-                    attachments: uploadedFiles,
-                });
-            } else if (uploadMode === 'link' && linkUrl.trim()) {
-                await addDoc(collection(db, 'materials'), {
-                    type: materialType,
-                    subject: subject.trim(),
-                    description: description.trim(),
-                    url: linkUrl.trim(),
-                    dept: userProfile.dept,
-                    sem: userProfile.sem,
-                    section: userProfile.section,
-                    author: userProfile.name,
-                    authorUid: userProfile.uid,
-                    timestamp: serverTimestamp(),
-                    // Link has no file deletion metadata
-                    service: null,
-                    fileId: null,
-                });
+                // If editing and we just uploaded new files, delete the old ones
+                if (editData) {
+                    if (editData.attachments && editData.attachments.length > 0) {
+                        const filesToDelete = editData.attachments
+                            .filter((att: any) => att.service && att.fileId)
+                            .map((att: any) => ({ service: att.service, fileId: att.fileId }));
+                        if (filesToDelete.length > 0) await deleteUploadedFiles(filesToDelete);
+                    } else if (editData.service && editData.fileId) {
+                        await deleteUploadedFiles([{ service: editData.service, fileId: editData.fileId }]);
+                    }
+                }
             }
 
-            showToast('Resource(s) published successfully!');
+            const isEdit = !!editData;
+            
+            if (isEdit) {
+                // Update
+                const updatePayload: any = {
+                    type: materialType,
+                    subject: subject.trim(),
+                    description: description.trim(),
+                };
+
+                if (uploadMode === 'file') {
+                    if (selectedFiles.length > 0) {
+                        // We replaced files
+                        updatePayload.url = uploadedFiles[0].url;
+                        updatePayload.service = uploadedFiles[0].service;
+                        updatePayload.fileId = uploadedFiles[0].fileId;
+                        updatePayload.attachments = uploadedFiles;
+                    }
+                    // if NO selected files during edit file mode: keep existing
+                } else if (uploadMode === 'link') {
+                    updatePayload.url = linkUrl.trim();
+                    updatePayload.service = null;
+                    updatePayload.fileId = null;
+                    updatePayload.attachments = [];
+                    // Optionally delete old files if switching from file -> link
+                    if (editData.attachments || editData.service) {
+                        if (editData.attachments && editData.attachments.length > 0) {
+                            const filesToDelete = editData.attachments
+                                .filter((att: any) => att.service && att.fileId)
+                                .map((att: any) => ({ service: att.service, fileId: att.fileId }));
+                            if (filesToDelete.length > 0) await deleteUploadedFiles(filesToDelete);
+                        } else if (editData.service && editData.fileId) {
+                            await deleteUploadedFiles([{ service: editData.service, fileId: editData.fileId }]);
+                        }
+                    }
+                }
+
+                await updateDoc(doc(db, 'materials', editData.id), updatePayload);
+                showToast('Resource updated successfully!');
+            } else {
+                // Create New
+                if (uploadMode === 'file' && selectedFiles.length > 0) {
+                    await addDoc(collection(db, 'materials'), {
+                        type: materialType,
+                        subject: subject.trim(),
+                        description: description.trim(),
+                        url: uploadedFiles[0].url,
+                        dept: userProfile.dept,
+                        sem: userProfile.sem,
+                        section: userProfile.section,
+                        author: userProfile.name,
+                        authorUid: userProfile.uid,
+                        timestamp: serverTimestamp(),
+                        service: uploadedFiles[0].service,
+                        fileId: uploadedFiles[0].fileId,
+                        attachments: uploadedFiles,
+                    });
+                } else {
+                    await addDoc(collection(db, 'materials'), {
+                        type: materialType,
+                        subject: subject.trim(),
+                        description: description.trim(),
+                        url: linkUrl.trim(),
+                        dept: userProfile.dept,
+                        sem: userProfile.sem,
+                        section: userProfile.section,
+                        author: userProfile.name,
+                        authorUid: userProfile.uid,
+                        timestamp: serverTimestamp(),
+                        service: null,
+                        fileId: null,
+                    });
+                }
+                showToast('Resource published successfully!');
+            }
+
             handleClose();
             onUploaded();
         } catch (error) {
-            console.error('Material upload failed:', error);
-            showAlert('Error', 'Could not publish resource. Try again.', 'error');
+            console.error('Material upload/update failed:', error);
+            showAlert('Error', 'Could not process resource. Try again.', 'error');
         } finally {
             setIsSubmitting(false);
             setShowProgress(false);
@@ -204,7 +274,7 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
                         <X className="w-5 h-5" />
                     </button>
 
-                    <h2 className="text-xl font-bold uppercase mb-6 tracking-widest">Upload Resource</h2>
+                    <h2 className="text-xl font-bold uppercase mb-6 tracking-widest">{editData ? 'Edit Resource' : 'Upload Resource'}</h2>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {/* Resource Category */}
@@ -301,6 +371,7 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
                                             {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : '(PDF, Image, Doc/Docx, PPT, Excel)'}
                                             <br />
                                             {!selectedFiles.length && 'Max size: 10MB per file'}
+                                            {editData && !selectedFiles.length && <><br /><span className="text-purple-600 dark:text-purple-400 font-bold uppercase">Leave empty to keep existing file(s)</span></>}
                                         </p>
                                     </label>
                                     <input
@@ -365,7 +436,7 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
                                     Processing...
                                 </>
                             ) : (
-                                'Publish Resource'
+                                editData ? 'Save Changes' : 'Publish Resource'
                             )}
                         </button>
                     </form>

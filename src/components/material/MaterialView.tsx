@@ -61,6 +61,7 @@ export default function MaterialView() {
     const [materials, setMaterials] = useState<MaterialData[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [showUploadModal, setShowUploadModal] = useState(false);
+    const [materialToEdit, setMaterialToEdit] = useState<MaterialData | null>(null);
     const [materialToDelete, setMaterialToDelete] = useState<string | null>(null);
     const [tabNames, setTabNames] = useState<Record<string, string>>({});
     const [editTabState, setEditTabState] = useState<{ isOpen: boolean, tab: TabKey | null, currentValue: string }>({ isOpen: false, tab: null, currentValue: '' });
@@ -205,6 +206,12 @@ export default function MaterialView() {
         }
     };
 
+    // Edit handler
+    const handleEdit = (material: MaterialData) => {
+        setMaterialToEdit(material);
+        setShowUploadModal(true);
+    };
+
     // Delete handler triggers the modal
     const handleDelete = (docId: string) => {
         setMaterialToDelete(docId);
@@ -264,6 +271,7 @@ export default function MaterialView() {
                                 onView={handleView}
                                 onDownload={handleDownload}
                                 onDelete={handleDelete}
+                                onEdit={handleEdit}
                             />
                         ))
                     )}
@@ -321,12 +329,16 @@ export default function MaterialView() {
                     </div>
                 </div>
 
-                {/* Upload Modal */}
+                {/* Upload / Edit Modal */}
                 <MaterialUploadModal
                     isOpen={showUploadModal}
-                    onClose={() => setShowUploadModal(false)}
+                    onClose={() => {
+                        setShowUploadModal(false);
+                        setMaterialToEdit(null);
+                    }}
                     onUploaded={loadMaterials}
                     tabNames={tabNames}
+                    editData={materialToEdit}
                 />
 
                 {/* Delete Modal */}

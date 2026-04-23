@@ -56,7 +56,7 @@ export interface GlobalSettings {
     globalChatLocked?: boolean;
 }
 
-type AuthStep = 'loading' | 'login' | 'verification' | 'profile' | 'authenticated' | 'strict-lock';
+type AuthStep = 'loading' | 'login' | 'verification' | 'profile' | 'authenticated' | 'strict-lock' | 'connection-error';
 
 interface AuthContextType {
     user: User | null;
@@ -75,6 +75,7 @@ interface AuthContextType {
     updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
     authError: string | null;
     clearAuthError: () => void;
+    retryConnection: () => void;
 }
 
 export interface ProfileSaveData {
@@ -100,7 +101,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         globalChatLocked: false
     });
     const [authError, setAuthError] = useState<string | null>(null);
+    const [connectionRetryCount, setConnectionRetryCount] = useState(0);
     const clearAuthError = () => setAuthError(null);
+    const retryConnection = () => setConnectionRetryCount(c => c + 1);
     const router = typeof window !== 'undefined' ? useRouter() : null;
 
     // Call native push notifications handler
@@ -297,7 +300,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             }
                         }
                         if (auth.currentUser) {
-                            setAuthStep('profile');
+                            // On web: show connection error instead of profile setup
+                            if (!Capacitor.isNativePlatform()) {
+                                console.warn('[Auth] Profile snapshot failed on web, showing connection error UI');
+                                setAuthStep('connection-error');
+                            } else {
+                                setAuthStep('profile');
+                            }
                         }
                     }
                 );
@@ -321,7 +330,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         });
         return () => unsub();
-    }, []);
+    }, [connectionRetryCount]);
 
     // --- AUTH METHODS ---
     const handleGoogleLogin = async () => {
@@ -601,6 +610,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 updateUserProfile,
                 authError,
                 clearAuthError,
+                retryConnection,
             }}
         >
             {children}
