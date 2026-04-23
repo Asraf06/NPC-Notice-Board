@@ -69,7 +69,7 @@ const ADMIN_UID = 'Q8lLnFIFuPeVcS9HU0y9p7iKKyo2';
 export default function ChatView({ initialTab }: { initialTab?: string }) {
     const router = useRouter();
     const { userProfile } = useAuth();
-    const { openProfile } = useUI();
+    const { openProfile, showToast, showAlert } = useUI();
     const {
         activeChatId,
         activePeer,
