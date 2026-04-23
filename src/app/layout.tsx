@@ -135,6 +135,7 @@ export default function RootLayout({
         {/* JSON-LD Structured Data for Google Rich Results */}
         <script
           type="application/ld+json"
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
