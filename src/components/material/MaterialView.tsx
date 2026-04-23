@@ -63,6 +63,7 @@ export default function MaterialView() {
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [materialToDelete, setMaterialToDelete] = useState<string | null>(null);
     const [tabNames, setTabNames] = useState<Record<string, string>>({});
+    const [editTabState, setEditTabState] = useState<{ isOpen: boolean, tab: TabKey | null, currentValue: string }>({ isOpen: false, tab: null, currentValue: '' });
 
     // Load materials from Firestore
     const loadMaterials = useCallback(async () => {
@@ -117,21 +118,10 @@ export default function MaterialView() {
         userProfile.email === 'admin@gmail.com'
     );
 
-    const handleEditTabName = async (tab: TabKey) => {
+    const handleEditTabName = (tab: TabKey) => {
         if (!canUpload || !userProfile) return;
         const currentName = tabNames[tab] || TAB_CONFIG[tab].label;
-        const newName = window.prompt(`Enter new name for ${TAB_CONFIG[tab].label}:`, currentName);
-        
-        if (newName && newName.trim() !== '' && newName.trim() !== currentName) {
-            try {
-                const dbRef = ref(rtdb, `class_material_tabs/${userProfile.dept}_${userProfile.sem}_${userProfile.section}`);
-                await update(dbRef, {
-                    [tab]: newName.trim()
-                });
-            } catch (error) {
-                console.error("Failed to update tab name", error);
-            }
-        }
+        setEditTabState({ isOpen: true, tab, currentValue: currentName });
     };
 
     // Filter materials by type for each category
@@ -348,6 +338,60 @@ export default function MaterialView() {
                             loadMaterials();
                         }}
                     />
+                )}
+
+                {/* Rename Dialog */}
+                {editTabState.isOpen && editTabState.tab && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={(e) => { e.stopPropagation(); setEditTabState({ isOpen: false, tab: null, currentValue: '' }); }}>
+                        <div className="bg-white dark:bg-black w-full max-w-sm border-2 border-black dark:border-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] p-6 z-10" onClick={e => e.stopPropagation()}>
+                            <h3 className="text-xl font-bold mb-3 uppercase flex items-center gap-2">
+                                <Edit3 className="w-5 h-5" /> Rename Section
+                            </h3>
+                            <p className="text-xs opacity-70 mb-5 font-mono leading-relaxed">
+                                Enter a new name for '{TAB_CONFIG[editTabState.tab].label}'. This will be visible to everyone in your class.
+                            </p>
+                            <input 
+                                type="text"
+                                className="w-full p-3 bg-gray-100 dark:bg-zinc-900 border-2 border-black dark:border-white mb-6 font-bold tracking-widest uppercase text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                value={editTabState.currentValue}
+                                onChange={(e) => setEditTabState(prev => ({ ...prev, currentValue: e.target.value }))}
+                                autoFocus
+                                onKeyDown={async (e) => {
+                                    if (e.key === 'Enter') {
+                                        const newName = editTabState.currentValue.trim();
+                                        const currentName = tabNames[editTabState.tab!] || TAB_CONFIG[editTabState.tab!].label;
+                                        if (newName && newName !== currentName && userProfile) {
+                                            const dbRef = ref(rtdb, `class_material_tabs/${userProfile.dept}_${userProfile.sem}_${userProfile.section}`);
+                                            await update(dbRef, { [editTabState.tab!]: newName });
+                                        }
+                                        setEditTabState({ isOpen: false, tab: null, currentValue: '' });
+                                    }
+                                }}
+                            />
+                            <div className="flex gap-3 justify-end whitespace-nowrap">
+                                <button 
+                                    className="px-4 py-2 border-2 border-black dark:border-white uppercase font-bold text-xs tracking-widest hover:bg-black/5"
+                                    onClick={() => setEditTabState({ isOpen: false, tab: null, currentValue: '' })}
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    className="px-4 py-2 bg-purple-600 text-white border-2 border-black dark:border-white uppercase font-bold text-xs tracking-widest hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all"
+                                    onClick={async () => {
+                                        const newName = editTabState.currentValue.trim();
+                                        const currentName = tabNames[editTabState.tab!] || TAB_CONFIG[editTabState.tab!].label;
+                                        if (newName && newName !== currentName && userProfile) {
+                                            const dbRef = ref(rtdb, `class_material_tabs/${userProfile.dept}_${userProfile.sem}_${userProfile.section}`);
+                                            await update(dbRef, { [editTabState.tab!]: newName });
+                                        }
+                                        setEditTabState({ isOpen: false, tab: null, currentValue: '' });
+                                    }}
+                                >
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
