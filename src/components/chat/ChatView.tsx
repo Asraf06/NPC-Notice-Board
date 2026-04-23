@@ -552,7 +552,7 @@ export default function ChatView({ initialTab }: { initialTab?: string }) {
 
     // Step 2: Crop confirmed → crop, upload, update RTDB + activePeer
     const handleConfirmGroupIconCrop = async () => {
-        if (!groupIconSrc || !groupIconCroppedArea || !userProfile || !user) return;
+        if (!groupIconSrc || !groupIconCroppedArea || !userProfile?.uid) return;
         const isGroupType = activeChatId?.startsWith('group_') || activeChatId === 'global_chat' || activeChatId === 'cr_group';
         if (!activeChatId || !isGroupType) return;
 
@@ -566,7 +566,7 @@ export default function ChatView({ initialTab }: { initialTab?: string }) {
 
             await update(ref(rtdb, `group_chats_meta/${activeChatId}`), {
                 photoURL: uploaded.url,
-                updatedBy: user.uid,
+                updatedBy: userProfile.uid,
                 timestamp: rtdbServerTimestamp()
             });
 
