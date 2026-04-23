@@ -30,6 +30,7 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [showProgress, setShowProgress] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     useSmoothScroll(scrollRef);
@@ -61,6 +62,24 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
         } catch (error) {
             console.error('Upload error:', error);
             return null;
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            setSelectedFiles(Array.from(e.dataTransfer.files));
         }
     };
 
@@ -264,22 +283,31 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
                             {uploadMode === 'file' && (
                                 <div>
                                     <label
+                                        onDragOver={handleDragOver}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={handleDrop}
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="block w-full p-6 border-2 border-dashed border-gray-400 dark:border-zinc-700 text-center cursor-pointer hover:border-purple-500 transition-colors group"
+                                        className={`block w-full p-6 border-2 border-dashed text-center cursor-pointer transition-colors group ${
+                                            isDragging 
+                                                ? 'border-purple-500 bg-purple-500/10' 
+                                                : 'border-gray-400 dark:border-zinc-700 hover:border-purple-500'
+                                        }`}
                                     >
-                                        <FileUp className="w-8 h-8 mx-auto opacity-30 mb-2 group-hover:text-purple-500 group-hover:opacity-100 transition-all" />
+                                        <FileUp className={`w-8 h-8 mx-auto mb-2 transition-all ${isDragging ? 'text-purple-500 opacity-100' : 'opacity-30 group-hover:text-purple-500 group-hover:opacity-100'}`} />
                                         <p className="text-xs font-bold uppercase tracking-widest">
-                                            Choose File (PDF/Image)
+                                            {isDragging ? 'Drop file(s) here' : 'Choose or Drop File'}
                                         </p>
                                         <p className="text-[10px] opacity-50 mt-1 font-mono">
-                                            {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Max size: 10MB per file'}
+                                            {selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : '(PDF, Image, Doc/Docx, PPT, Excel)'}
+                                            <br />
+                                            {!selectedFiles.length && 'Max size: 10MB per file'}
                                         </p>
                                     </label>
                                     <input
                                         ref={fileInputRef}
                                         type="file"
                                         className="hidden"
-                                        accept="application/pdf,image/*"
+                                        accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
                                         multiple
                                         onChange={(e) => {
                                             if (e.target.files) {

@@ -37,7 +37,7 @@ function DocumentViewerContent() {
     useEffect(() => {
         if (!url) return;
         const lower = url.toLowerCase();
-        if (lower.includes('.pdf') || lower.includes('/pdf') || lower.includes('raw/upload')) {
+        if (lower.includes('.pdf') || lower.includes('/pdf') || lower.includes('raw/upload') || lower.match(/\.(doc|docx|xls|xlsx|ppt|pptx)/)) {
             setFileType('pdf');
         } else if (lower.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)/)) {
             setFileType('image');
@@ -168,7 +168,7 @@ function DocumentViewerContent() {
                     <div className="min-w-0">
                         <h1 className="font-black text-sm uppercase tracking-wider truncate">{title}</h1>
                         <p className="text-[9px] font-mono opacity-40 uppercase truncate">
-                            {fileType === 'pdf' && '📄 PDF Document'}
+                            {fileType === 'pdf' && '📄 Document'}
                             {fileType === 'image' && '🖼️ Image'}
                             {fileType === 'video' && '🎬 Video'}
                             {fileType === 'other' && '📁 File'}
