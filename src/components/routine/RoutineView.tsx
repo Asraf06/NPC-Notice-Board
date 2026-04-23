@@ -22,14 +22,46 @@ interface RoutineData {
     schedule: Record<string, RoutineSlot[]>;
 }
 
+const checkIsRunning = (day: string, timeSlot: string, now: Date | null) => {
+    if (!now) return false;
+    
+    const daysMap: Record<number, string> = { 0: 'SUN', 1: 'MON', 2: 'TUE', 3: 'WED', 4: 'THU', 5: 'FRI', 6: 'SAT' };
+    if (day !== daysMap[now.getDay()]) return false;
+
+    const parts = timeSlot.split(' - ');
+    if (parts.length !== 2) return false;
+    
+    const parseTime = (timeStr: string) => {
+        const [hStr, mStr] = timeStr.split(':');
+        let h = parseInt(hStr, 10);
+        const m = parseInt(mStr, 10);
+        // If hour is 01-07, add 12 to make it PM (13-19)
+        if (h >= 1 && h <= 7) h += 12;
+        return h * 60 + m;
+    };
+
+    const startMins = parseTime(parts[0].trim());
+    const endMins = parseTime(parts[1].trim());
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+
+    return nowMins >= startMins && nowMins < endMins;
+};
+
 export default function RoutineView() {
     const { userProfile } = useAuth();
     const [routineData, setRoutineData] = useState<RoutineData | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeDay, setActiveDay] = useState<string>('');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
     const feedRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        setCurrentTime(new Date());
+        const interval = setInterval(() => setCurrentTime(new Date()), 60000);
+        return () => clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         if (!userProfile) return;
@@ -181,8 +213,15 @@ export default function RoutineView() {
                                     {routineData.slots.map(slot => {
                                         const classData = routineData.schedule[day]?.find(s => s.time === slot);
                                         if (classData) {
+                                            const isActive = checkIsRunning(day, slot, currentTime);
                                             return (
-                                                <div key={`${day}-${slot}`} className="routine-cell group">
+                                                <div key={`${day}-${slot}`} className={`routine-cell group relative ${isActive ? 'ring-2 ring-inset ring-green-500 bg-green-500/5' : ''}`}>
+                                                    {isActive && (
+                                                        <div className="absolute top-2 right-2 flex w-2.5 h-2.5" title="Class is Live">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                                                        </div>
+                                                    )}
                                                     <h4 className="font-black text-[13px] uppercase leading-tight mb-2 text-purple-600 dark:text-purple-400 group-hover:underline decoration-2 underline-offset-2">
                                                         {classData.subject}
                                                     </h4>
@@ -239,7 +278,16 @@ export default function RoutineView() {
                                     if (!slot) return null;
 
                                     return (
-                                        <div key={slotTime} className="p-6 border-2 border-black dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.05)] hover:border-purple-500 transition-all">
+                                        <div key={slotTime} className={`relative p-6 border-2 transition-all ${checkIsRunning(activeDay, slotTime, currentTime) ? 'border-green-500 bg-green-50/50 dark:bg-green-900/10' : 'border-black dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.05)] hover:border-purple-500'}`}>
+                                            {checkIsRunning(activeDay, slotTime, currentTime) && (
+                                                <div className="absolute top-4 right-4 flex items-center gap-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-green-600 dark:text-green-400">Live</span>
+                                                    <span className="flex relative w-2.5 h-2.5">
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                                                    </span>
+                                                </div>
+                                            )}
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 font-mono font-black text-[10px] uppercase border border-purple-200 dark:border-purple-800">
                                                     {slotTime}

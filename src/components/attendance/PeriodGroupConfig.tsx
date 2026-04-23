@@ -89,7 +89,11 @@ export default function PeriodGroupConfig({
     existingGroups,
     onSave,
 }: PeriodGroupConfigProps) {
-    const [activeDay, setActiveDay] = useState('MON');
+    const initialDay = useMemo(() => {
+        const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        return days[new Date().getDay()];
+    }, []);
+    const [activeDay, setActiveDay] = useState(initialDay);
     const [localGroups, setLocalGroups] = useState<PeriodGroupsConfig>({});
     const [saving, setSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
@@ -120,7 +124,16 @@ export default function PeriodGroupConfig({
 
     const periodsForActiveDay: RoutinePeriod[] = useMemo(() => {
         if (!routineData?.schedule) return [];
-        return routineData.schedule[activeDay] || [];
+        const periods = routineData.schedule[activeDay] || [];
+        const slots = routineData.slots || [];
+        return [...periods].sort((a, b) => {
+            const idxA = slots.indexOf(a.time);
+            const idxB = slots.indexOf(b.time);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.time.localeCompare(b.time);
+        });
     }, [routineData, activeDay]);
 
     const suggestedGroups = useMemo(() => {

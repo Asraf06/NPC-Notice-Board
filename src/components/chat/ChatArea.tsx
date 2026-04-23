@@ -35,6 +35,7 @@ interface ChatAreaProps {
     onExternalToggleConsumed?: () => void;
     onSendMessage: (text: string, replyTo?: { id: string; text: string; sender: string } | null, attachments?: { type: string; url: string; thumb?: string; service?: string; fileId?: string | null }[]) => Promise<void>;
     onHeaderClick?: () => void;
+    onGroupIconEdit?: () => void;
 }
 
 export default function ChatArea({
@@ -58,6 +59,7 @@ export default function ChatArea({
     onExternalToggleConsumed,
     onSendMessage,
     onHeaderClick,
+    onGroupIconEdit,
 }: ChatAreaProps) {
     const { userProfile, globalSettings } = useAuth();
     const { showToast } = useUI();
@@ -279,7 +281,7 @@ export default function ChatArea({
     };
 
     const initiateReply = (key: string, text: string, sender: string) => {
-        setReplyTo({ id: key, text: text.substring(0, 80), sender });
+        setReplyTo({ id: key, text: text ? text.substring(0, 80) : 'Attachment', sender });
         inputRef.current?.focus();
     };
 
@@ -358,10 +360,10 @@ export default function ChatArea({
                 className={`hidden md:flex items-center gap-3 p-4 border-b-2 border-black dark:border-zinc-800 bg-white dark:bg-black shrink-0 transition-colors duration-500`}
             >
                 <div className="flex-1 flex items-center gap-3 min-w-0 cursor-pointer hover:opacity-80 transition-opacity" onClick={onHeaderClick}>
-                    <div className="relative">
+                    <div className="relative group">
                         <img
                             src={peerPhoto || `https://ui-avatars.com/api/?name=${peerName}`}
-                            className={`w-10 h-10 object-cover border-2 border-black dark:border-zinc-600 transition-all duration-500 ${chatTheme === 'digital' ? 'rounded-none' : 'rounded-full'}`}
+                            className={`w-10 h-10 object-cover border-2 border-black dark:border-zinc-600 transition-all duration-500 hover:brightness-75 cursor-pointer ${chatTheme === 'digital' ? 'rounded-none' : 'rounded-full'}`}
                             alt=""
                             referrerPolicy="no-referrer"
                         />
@@ -379,6 +381,16 @@ export default function ChatArea({
 
                 {/* Right-side action buttons */}
                 <div className="flex items-center gap-1 relative">
+                    {/* Group Icon Update Button */}
+                    {isGroup && (userProfile?.isCR || userProfile?.role === 'admin') && onGroupIconEdit && (
+                        <button
+                            onClick={onGroupIconEdit}
+                            className="p-2 rounded-full transition-all duration-300 hover:bg-gray-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 dark:hover:text-white"
+                            title="Change Group Icon"
+                        >
+                            <ImageIcon className="w-5 h-5" />
+                        </button>
+                    )}
                     {/* Theme Settings Button */}
                     <button
                         onClick={() => setShowAppearancePanel(!showAppearancePanel)}
@@ -780,7 +792,11 @@ function MessageBubble({
                         onClick={handleBubbleClick}
                         className={`${sz.px} ${sz.py} text-sm relative border-2 border-black dark:border-white transition-all duration-300 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] ${bg} cursor-pointer`}
                     >
-                        {msg.replyTo && <ReplyPreview data={msg.replyTo} theme="classic" isMe={isMe} />}
+                        {msg.replyTo && <ReplyPreview data={{ 
+                            id: typeof msg.replyTo === 'object' ? (msg.replyTo as any).id : msg.replyTo, 
+                            text: msg.replyToText || (typeof msg.replyTo === 'object' ? (msg.replyTo as any).text : ''), 
+                            sender: msg.replyToSender || (typeof msg.replyTo === 'object' ? (msg.replyTo as any).sender : '') 
+                        }} theme="classic" isMe={isMe} />}
                         {msg.attachments && msg.attachments.length > 0 && (
                             <div className="mb-2 max-w-[300px] overflow-hidden rounded-[8px] border border-white/10 shrink-0">
                                 <CollageRenderer
@@ -832,7 +848,11 @@ function MessageBubble({
                         onClick={handleBubbleClick}
                         className={`${sz.px} ${sz.py} text-xs relative font-mono tracking-wide transition-all duration-300 ${bg} cursor-pointer`}
                     >
-                        {msg.replyTo && <ReplyPreview data={msg.replyTo} theme="digital" isMe={isMe} />}
+                        {msg.replyTo && <ReplyPreview data={{ 
+                            id: typeof msg.replyTo === 'object' ? (msg.replyTo as any).id : msg.replyTo, 
+                            text: msg.replyToText || (typeof msg.replyTo === 'object' ? (msg.replyTo as any).text : ''), 
+                            sender: msg.replyToSender || (typeof msg.replyTo === 'object' ? (msg.replyTo as any).sender : '') 
+                        }} theme="digital" isMe={isMe} />}
                         {msg.attachments && msg.attachments.length > 0 && (
                             <div className="mb-2 max-w-[300px] overflow-hidden rounded-[8px] border border-white/10 shrink-0">
                                 <CollageRenderer
@@ -885,7 +905,11 @@ function MessageBubble({
                     onClick={handleBubbleClick}
                     className={`${sz.px} ${sz.py} relative transition-all duration-300 hover:scale-[1.01] ${bg} cursor-pointer`}
                 >
-                    {msg.replyTo && <ReplyPreview data={msg.replyTo} theme="modern" isMe={isMe} />}
+                    {msg.replyTo && <ReplyPreview data={{ 
+                        id: typeof msg.replyTo === 'object' ? (msg.replyTo as any).id : msg.replyTo, 
+                        text: msg.replyToText || (typeof msg.replyTo === 'object' ? (msg.replyTo as any).text : ''), 
+                        sender: msg.replyToSender || (typeof msg.replyTo === 'object' ? (msg.replyTo as any).sender : '') 
+                    }} theme="modern" isMe={isMe} />}
                     {msg.attachments && msg.attachments.length > 0 && (
                         <div className="mb-2 max-w-[300px] overflow-hidden rounded-[8px] border border-white/10 shrink-0">
                             <CollageRenderer
@@ -931,7 +955,7 @@ function ReplyPreview({ data, theme, isMe }: { data: any, theme: string, isMe: b
     };
 
     const sender = typeof data === 'object' ? (data.sender || 'User') : 'User';
-    const text = typeof data === 'object' ? (data.text || '...') : data;
+    const text = typeof data === 'object' ? (data.text || 'Attachment') : String(data);
 
     return (
         <div className={styles[theme] || styles.modern}>

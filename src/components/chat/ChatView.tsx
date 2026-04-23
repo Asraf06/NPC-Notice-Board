@@ -13,9 +13,12 @@ import {
     ref, onValue, push, update, serverTimestamp as rtdbServerTimestamp, off, runTransaction
 } from 'firebase/database';
 import { useRouter } from 'next/navigation';
+import { secureUploadFile } from '@/lib/uploadService';
+import Cropper from 'react-easy-crop';
+import { getCroppedImg } from '@/lib/cropImage';
 import ChatSidebar from './ChatSidebar';
 import ChatArea from './ChatArea';
-import { ArrowLeft, Settings } from 'lucide-react';
+import { ArrowLeft, Settings, Image as ImageIcon, X, Check, Loader2 } from 'lucide-react';
 
 /* ─── Types ─── */
 export interface FriendData {
@@ -117,12 +120,20 @@ export default function ChatView({ initialTab }: { initialTab?: string }) {
     const [classGroupIcon, setClassGroupIcon] = useState<string | null>(null);
     const [globalGroupIcon, setGlobalGroupIcon] = useState<string | null>(null);
 
+    // ── Group Icon Crop ──
+    const [groupIconSrc, setGroupIconSrc] = useState<string | null>(null);
+    const [groupIconCrop, setGroupIconCrop] = useState({ x: 0, y: 0 });
+    const [groupIconZoom, setGroupIconZoom] = useState(1);
+    const [groupIconCroppedArea, setGroupIconCroppedArea] = useState<any>(null);
+    const [isGroupIconUploading, setIsGroupIconUploading] = useState(false);
+
     // ── Peer Presence ──
     const [peerStatus, setPeerStatus] = useState<'online' | 'offline'>('offline');
     const [peerLastOnline, setPeerLastOnline] = useState<number | undefined>(undefined);
 
     // Listener cleanup ref
     const messageListenerRef = useRef<(() => void) | null>(null);
+    const groupIconInputRef = useRef<HTMLInputElement>(null);
 
     /* ─── Listen to friend relationships (Firestore) ─── */
     useEffect(() => {
@@ -525,6 +536,64 @@ export default function ChatView({ initialTab }: { initialTab?: string }) {
         }
     }, [activePeer, openProfile]);
 
+    // Step 1: File selected → read as data URL to show crop modal
+    const handleGroupIconFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.addEventListener('load', () => setGroupIconSrc(reader.result?.toString() || null));
+        reader.readAsDataURL(file);
+        if (groupIconInputRef.current) groupIconInputRef.current.value = '';
+    };
+
+    const onGroupIconCropComplete = (_croppedArea: any, croppedAreaPixels: any) => {
+        setGroupIconCroppedArea(croppedAreaPixels);
+    };
+
+    // Step 2: Crop confirmed → crop, upload, update RTDB + activePeer
+    const handleConfirmGroupIconCrop = async () => {
+        if (!groupIconSrc || !groupIconCroppedArea || !userProfile || !user) return;
+        const isGroupType = activeChatId?.startsWith('group_') || activeChatId === 'global_chat' || activeChatId === 'cr_group';
+        if (!activeChatId || !isGroupType) return;
+
+        setIsGroupIconUploading(true);
+        try {
+            const croppedFile = await getCroppedImg(groupIconSrc, groupIconCroppedArea);
+            if (!croppedFile) throw new Error('Could not crop image');
+
+            const uploaded = await secureUploadFile(croppedFile, `/group_icons/${activeChatId}`);
+            if (!uploaded) throw new Error('Upload returned no result');
+
+            await update(ref(rtdb, `group_chats_meta/${activeChatId}`), {
+                photoURL: uploaded.url,
+                updatedBy: user.uid,
+                timestamp: rtdbServerTimestamp()
+            });
+
+            // Update the active peer photo so the header refreshes immediately
+            if (activePeer) {
+                setActiveChat(activeChatId, { ...activePeer, photo: uploaded.url });
+            }
+
+            showToast('Group icon updated!');
+        } catch (err) {
+            console.error(err);
+            showAlert('Error', 'Failed to upload group icon.', 'error');
+        } finally {
+            setIsGroupIconUploading(false);
+            setGroupIconSrc(null);
+            setGroupIconZoom(1);
+        }
+    };
+
+    const triggerGroupIconUpload = () => {
+        if (userProfile?.isCR || userProfile?.role === 'admin') {
+            groupIconInputRef.current?.click();
+        } else {
+            showToast('Only Admins/CRs can change group icon.');
+        }
+    };
+
     /* ─── Compute total unread ─── */
     const totalUnread = Object.values(chatMeta).reduce((sum, m) => sum + (m.unread || 0), 0) + receivedRequests.length;
 
@@ -613,6 +682,7 @@ export default function ChatView({ initialTab }: { initialTab?: string }) {
                             onExternalToggleConsumed={() => setMobileAppearanceOpen(false)}
                             onSendMessage={sendMessage}
                             onHeaderClick={handleHeaderClick}
+                            onGroupIconEdit={triggerGroupIconUpload}
                         />
                     </div>
                 ) : (
@@ -636,18 +706,31 @@ export default function ChatView({ initialTab }: { initialTab?: string }) {
                             <ArrowLeft className="w-5 h-5" />
                         </button>
                         <div className="flex-1 flex items-center gap-3 min-w-0" onClick={handleHeaderClick}>
-                            <img src={activePeer.photo || `https://ui-avatars.com/api/?name=${activePeer.name}`} className="w-8 h-8 rounded-full object-cover border border-gray-300" alt="" referrerPolicy="no-referrer" />
+                            <div className="relative">
+                                <img src={activePeer.photo || `https://ui-avatars.com/api/?name=${activePeer.name}`} className="w-8 h-8 rounded-full object-cover border border-gray-300" alt="" referrerPolicy="no-referrer" />
+                            </div>
                             <div className="flex-1 min-w-0">
                                 <p className="font-bold text-sm truncate">{activePeer.name}</p>
                                 <p className="text-[10px] opacity-50 font-mono uppercase truncate">{activePeer.info || activePeer.dept}</p>
                             </div>
                         </div>
-                        <button
-                            onClick={() => setMobileAppearanceOpen(prev => !prev)}
-                            className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-lg transition-all"
-                        >
-                            <Settings className="w-5 h-5 opacity-70" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                            {(activePeer.type === 'group' || activePeer.type === 'cr' || activePeer.type === 'global') && (userProfile?.isCR || userProfile?.role === 'admin') && (
+                                <button
+                                    onClick={triggerGroupIconUpload}
+                                    className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-lg transition-all"
+                                    title="Change Group Icon"
+                                >
+                                    <ImageIcon className="w-5 h-5 opacity-70" />
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setMobileAppearanceOpen(prev => !prev)}
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-zinc-900 rounded-lg transition-all"
+                            >
+                                <Settings className="w-5 h-5 opacity-70" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Chat content — takes full remaining height */}
@@ -673,7 +756,80 @@ export default function ChatView({ initialTab }: { initialTab?: string }) {
                             onExternalToggleConsumed={() => setMobileAppearanceOpen(false)}
                             onSendMessage={sendMessage}
                             onHeaderClick={handleHeaderClick}
+                            onGroupIconEdit={triggerGroupIconUpload}
                         />
+                    </div>
+                </div>
+            )}
+
+            {/* Hidden Input for Group Icon (accessible from headers) */}
+            <input
+                ref={groupIconInputRef}
+                type="file"
+                className="hidden"
+                accept="image/*"
+                onChange={handleGroupIconFileSelect}
+            />
+
+            {/* Group Icon Crop Modal */}
+            {groupIconSrc && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-black w-full max-w-lg border-2 border-black dark:border-zinc-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] dark:shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)] flex flex-col max-h-[90vh]">
+                        <div className="px-4 py-3 border-b-2 border-black dark:border-zinc-800 flex justify-between items-center bg-gray-50 dark:bg-zinc-900">
+                            <h3 className="font-black uppercase tracking-wider text-sm">Crop Group Icon</h3>
+                            <button
+                                onClick={() => { setGroupIconSrc(null); setGroupIconZoom(1); }}
+                                className="p-1 hover:bg-gray-200 dark:hover:bg-zinc-800 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="relative w-full h-[50vh] md:h-[400px] bg-gray-100 dark:bg-zinc-900">
+                            <Cropper
+                                image={groupIconSrc}
+                                crop={groupIconCrop}
+                                zoom={groupIconZoom}
+                                aspect={1}
+                                cropShape="round"
+                                showGrid={false}
+                                onCropChange={setGroupIconCrop}
+                                onCropComplete={onGroupIconCropComplete}
+                                onZoomChange={setGroupIconZoom}
+                            />
+                        </div>
+                        <div className="p-4 border-t-2 border-black dark:border-zinc-800 flex flex-col gap-4 bg-white dark:bg-black">
+                            <div className="flex items-center gap-3">
+                                <span className="text-xs font-bold uppercase w-12 text-gray-500">Zoom</span>
+                                <input
+                                    type="range"
+                                    min={1}
+                                    max={3}
+                                    step={0.1}
+                                    value={groupIconZoom}
+                                    onChange={(e) => setGroupIconZoom(Number(e.target.value))}
+                                    className="flex-1 accent-black dark:accent-white h-1.5 bg-gray-200 dark:bg-zinc-800 appearance-none rounded-full"
+                                />
+                            </div>
+                            <div className="flex gap-3 mt-2">
+                                <button
+                                    onClick={() => { setGroupIconSrc(null); setGroupIconZoom(1); }}
+                                    className="flex-1 py-3 border-2 border-black dark:border-zinc-700 font-bold uppercase text-sm hover:bg-gray-100 dark:hover:bg-zinc-900 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleConfirmGroupIconCrop}
+                                    disabled={isGroupIconUploading}
+                                    className="flex-1 py-3 bg-black text-white dark:bg-white dark:text-black font-bold uppercase text-sm flex justify-center items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50"
+                                >
+                                    {isGroupIconUploading ? (
+                                        <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
+                                    ) : (
+                                        <><Check className="w-4 h-4" /> Apply</>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

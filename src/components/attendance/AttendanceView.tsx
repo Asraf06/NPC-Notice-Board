@@ -462,31 +462,69 @@ export default function AttendanceView() {
     }, [selectedDate, selectedPeriod, userProfile, studentList, isPublished]);
 
     const handleCopyPreviousPeriod = async () => {
-        if (!availablePeriods.length || !selectedPeriod) return;
+        if (!resolvedPeriods.length || !selectedPeriod) return;
         
-        const currentIndex = availablePeriods.findIndex(p => p.time === selectedPeriod);
+        // Use resolvedPeriods (which merges grouped periods) instead of raw availablePeriods
+        const currentIndex = resolvedPeriods.findIndex(rp => rp.key === selectedPeriod);
         if (currentIndex <= 0) {
             showToast("No previous period to copy from today.");
             return;
         }
 
-        const prevPeriodTime = availablePeriods[currentIndex - 1].time;
+        const prevResolved = resolvedPeriods[currentIndex - 1];
+        const prevPeriodKey = prevResolved.key; // composite key for groups, time string for singles
+        const prevLabel = prevResolved.displayLabel;
         
         showAlert(
             "Copy Previous Attendance", 
-            `Bring over attendance from the previous period (${prevPeriodTime})? This will override current unsaved changes.`,
+            `Bring over attendance from the previous period (${prevLabel})? This will override current unsaved changes.`,
             "warning",
             async () => {
                 setLoading(true);
                 try {
-                    const q = query(
+                    // Try attendance_records first, then fall back to attendance_sessions
+                    let prevSnap = await getDocs(query(
                         collection(db, "attendance_records"),
                         where("dept", "==", userProfile!.dept),
                         where("sem", "==", userProfile!.sem),
                         where("date", "==", selectedDate),
-                        where("period", "==", prevPeriodTime)
-                    );
-                    const prevSnap = await getDocs(q);
+                        where("period", "==", prevPeriodKey)
+                    ));
+                    
+                    if (prevSnap.empty) {
+                        // Try sessions (unpublished attendance)
+                        prevSnap = await getDocs(query(
+                            collection(db, "attendance_sessions"),
+                            where("dept", "==", userProfile!.dept),
+                            where("sem", "==", userProfile!.sem),
+                            where("date", "==", selectedDate),
+                            where("period", "==", prevPeriodKey)
+                        ));
+                    }
+
+                    // If the previous period was grouped but data was stored under individual period times,
+                    // try fetching by each raw period time as well
+                    if (prevSnap.empty && prevResolved.isGroup) {
+                        for (const rawTime of prevResolved.rawPeriods) {
+                            const altSnap = await getDocs(query(
+                                collection(db, "attendance_records"),
+                                where("dept", "==", userProfile!.dept),
+                                where("sem", "==", userProfile!.sem),
+                                where("date", "==", selectedDate),
+                                where("period", "==", rawTime)
+                            ));
+                            if (!altSnap.empty) { prevSnap = altSnap; break; }
+
+                            const altSessSnap = await getDocs(query(
+                                collection(db, "attendance_sessions"),
+                                where("dept", "==", userProfile!.dept),
+                                where("sem", "==", userProfile!.sem),
+                                where("date", "==", selectedDate),
+                                where("period", "==", rawTime)
+                            ));
+                            if (!altSessSnap.empty) { prevSnap = altSessSnap; break; }
+                        }
+                    }
                     
                     if (prevSnap.empty) {
                         showToast("No attendance recorded for the previous period.");

@@ -80,6 +80,22 @@ export default function AuthOverlay() {
 
     // Verification state
     const [verifyLoading, setVerifyLoading] = useState(false);
+    const [autoSendDone, setAutoSendDone] = useState(false);
+
+    // Auto-send verification email when verification screen appears
+    useEffect(() => {
+        if (authStep === 'verification' && !autoSendDone) {
+            setAutoSendDone(true);
+            resendVerificationEmail()
+                .then(() => {
+                    setResendCooldown(true);
+                    setTimeout(() => setResendCooldown(false), 60000);
+                })
+                .catch((err) => {
+                    console.warn('Auto-send verification email failed:', err);
+                });
+        }
+    }, [authStep, autoSendDone, resendVerificationEmail]);
 
     // Lock screen state
     const [lockNewRoll, setLockNewRoll] = useState('');
@@ -470,14 +486,30 @@ export default function AuthOverlay() {
                     <div className="text-center">
                         <div className="mb-6">
                             <MailCheck className="w-16 h-16 mx-auto mb-4 text-green-500" />
-                            <h2 className="text-xl font-bold mb-2 uppercase">Verify Email</h2>
-                            <p className="text-sm opacity-70 mb-4">We sent a verification link to:</p>
-                            <p className="font-mono font-bold text-sm bg-gray-100 dark:bg-zinc-900 p-2 rounded mb-6">
+                            <h2 className="text-xl font-bold mb-2 uppercase">Check Your Email</h2>
+                            <p className="font-mono font-bold text-sm bg-gray-100 dark:bg-zinc-900 p-2 rounded mb-4">
                                 {user?.email}
                             </p>
-                            <p className="text-xs opacity-60 mb-6">
-                                Please check your inbox (and spam folder) and click the link to activate your account.
-                            </p>
+                        </div>
+
+                        {/* Step-by-step instructions */}
+                        <div className="text-left bg-gray-50 dark:bg-zinc-900 border-2 border-black dark:border-zinc-700 p-4 mb-6 space-y-3">
+                            <div className="flex items-start gap-3">
+                                <span className="w-6 h-6 shrink-0 bg-black dark:bg-white text-white dark:text-black rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                                <p className="text-xs leading-relaxed">Open your <strong>Gmail app</strong> or email inbox</p>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <span className="w-6 h-6 shrink-0 bg-black dark:bg-white text-white dark:text-black rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                                <p className="text-xs leading-relaxed">Find the email from <strong>noreply@...</strong> (also check <strong>Spam folder</strong>)</p>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <span className="w-6 h-6 shrink-0 bg-black dark:bg-white text-white dark:text-black rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                                <p className="text-xs leading-relaxed"><strong>Click the link</strong> inside the email to verify</p>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <span className="w-6 h-6 shrink-0 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">4</span>
+                                <p className="text-xs leading-relaxed">Come back here and tap the button below 👇</p>
+                            </div>
                         </div>
 
                         <div className="space-y-3">
@@ -486,14 +518,14 @@ export default function AuthOverlay() {
                                 disabled={verifyLoading}
                                 className="w-full py-3 bg-black text-white dark:bg-white dark:text-black font-bold uppercase hover:opacity-80 transition-all disabled:opacity-50"
                             >
-                                {verifyLoading ? 'Checking...' : 'I Verified It'}
+                                {verifyLoading ? 'Checking...' : '✅ I Already Clicked the Link'}
                             </button>
                             <button
                                 onClick={onResendEmail}
                                 disabled={resendCooldown}
                                 className="w-full py-3 border-2 border-black dark:border-white font-bold uppercase hover:bg-gray-100 dark:hover:bg-zinc-900 text-xs disabled:opacity-50"
                             >
-                                {resendCooldown ? 'Link Sent! (Wait 60s)' : 'Resend Email'}
+                                {resendCooldown ? 'Email Sent! (Wait 60s)' : "Didn't Get It? Resend Email"}
                             </button>
                             <button
                                 onClick={() => { cancelRegistration(); window.location.reload(); }}

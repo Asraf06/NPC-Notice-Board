@@ -16,12 +16,10 @@ import ShareNoticeModal from './ShareNoticeModal';
 import DeleteNoticeModal from './DeleteNoticeModal';
 import CreateNoticeModal from './CreateNoticeModal';
 import EditNoticeModal from './EditNoticeModal';
-import { secureUploadFile } from '@/lib/uploadService';
 import SubjectDropdown from './SubjectDropdown';
 import CRDashboardModal from '../admin/CRDashboardModal';
 import ManageBoardRollsModal from '../admin/ManageBoardRollsModal';
 import AttendanceQRModal from '../admin/AttendanceQRModal';
-import { getDatabase, ref as rtdbRef, update, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
 import type { NoticeData } from './NoticeCard';
 
 interface CategoryData {
@@ -84,7 +82,6 @@ export default function NoticesView() {
     const [showScrollTop, setShowScrollTop] = useState(false);
     const feedRef = useRef<HTMLElement>(null);
     const sidebarRef = useRef<HTMLElement>(null);
-    const groupIconRef = useRef<HTMLInputElement>(null);
     // DATA FETCHING
     // ============================================
 
@@ -501,33 +498,6 @@ export default function NoticesView() {
         return () => feed.removeEventListener('scroll', handleScroll);
     }, []);
 
-    const handleGroupIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !userProfile || !user) return;
-
-        // Secure upload via server-side proxy (keys never reach browser)
-        try {
-            const uploaded = await secureUploadFile(file);
-            if (!uploaded) throw new Error('Upload returned no result');
-            const url = uploaded.url;
-
-            const chatId = `group_${userProfile.section}_${userProfile.dept}_${userProfile.sem}`.replace(/\s/g, '_').toLowerCase();
-            const rtdb = getDatabase();
-            await update(rtdbRef(rtdb, `group_chats_meta/${chatId}`), {
-                photoURL: url,
-                updatedBy: user.uid,
-                timestamp: rtdbServerTimestamp()
-            });
-
-            showToast('Group icon updated!');
-        } catch (err) {
-            console.error(err);
-            showAlert('Error', 'Failed to upload icon.', 'error');
-        } finally {
-            if (groupIconRef.current) groupIconRef.current.value = '';
-        }
-    };
-
     return (
         <>
             <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden w-full">
@@ -752,15 +722,6 @@ export default function NoticesView() {
                 </div>
             )}
 
-            {/* Hidden Input for Group Icon */}
-            <input
-                ref={groupIconRef}
-                type="file"
-                id="group-icon-upload-input"
-                className="hidden"
-                accept="image/*"
-                onChange={handleGroupIconUpload}
-            />
 
             {/* Attendance QR Modal */}
             <AttendanceQRModal isOpen={showQRModal} onClose={() => setShowQRModal(false)} />

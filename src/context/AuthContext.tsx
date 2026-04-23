@@ -229,7 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                                     const acData = acDoc.data();
                                     const deptAccess = acData.departments?.[userData.dept]?.[userData.sem];
                                     if (!deptAccess || !deptAccess.login) {
-                                        setAuthError(`Notice: Login access is currently restricted for ${userData.dept} ${userData.sem}. Please wait for your timeline.`);
+                                        setAuthError(`Login is not open yet for ${userData.dept} ${userData.sem} semester.\n\n💡 Please wait for your CR or Admin to enable it.`);
                                         await signOut(auth);
                                         return;
                                     }
@@ -402,7 +402,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Let's ensure no *other* user holds this roll.
             const otherUserWithRoll = studentsSnap.docs.find((d: any) => d.id !== auth.currentUser!.uid);
             if (otherUserWithRoll) {
-                throw new Error(`Board Roll ${roll} is already registered to another account.`);
+                throw new Error(`Board Roll ${roll} is already taken by someone else.\n\n💡 If this is your roll, please contact your CR or Admin.`);
             }
         }
 
@@ -424,7 +424,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     });
                     
                     if (!isAllowed) {
-                        throw new Error(`Board Roll ${roll} is not permitted to register for ${dept} ${sem}. Contact your CR/Admin to add you.`);
+                        throw new Error(`Your Board Roll (${roll}) is not in the allowed list for ${dept} ${sem}.\n\n💡 Ask your CR or Admin to add your roll number.`);
                     }
                 }
             }
@@ -436,7 +436,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const acData = acDoc.data();
             const deptAccess = acData.departments?.[dept]?.[sem];
             if (!deptAccess || !deptAccess.register) {
-                throw new Error(`Registration is currently closed for ${dept} ${sem}.`);
+                throw new Error(`Registration is not open yet for ${dept} ${sem} semester.\n\n💡 Please wait for your CR or Admin to open it.`);
             }
         }
 

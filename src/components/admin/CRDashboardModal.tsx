@@ -44,10 +44,7 @@ export default function CRDashboardModal({ isOpen, onClose, onOpenCreateNotice }
         window.dispatchEvent(new Event('pinnedToolsChanged'));
     };
 
-    const triggerGroupIconUpload = () => {
-        const input = document.getElementById('group-icon-upload-input') as HTMLInputElement;
-        if (input) input.click();
-    };
+
 
     const toggleGmailRestriction = async () => {
         if (togglingGmail) return;
@@ -180,23 +177,6 @@ export default function CRDashboardModal({ isOpen, onClose, onOpenCreateNotice }
                                         <button
                                             onClick={() => togglePin('manage_rolls')}
                                             className={`absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-white/20 dark:hover:bg-black/20 rounded-full transition-colors ${pinnedTools.includes('manage_rolls') ? 'text-yellow-400' : 'text-zinc-400 dark:text-zinc-600'}`}
-                                            title="Pin to Main Screen"
-                                        >
-                                            <Pin className="w-5 h-5" />
-                                        </button>
-                                    </div>
-
-                                    {/* Manage Group Icon */}
-                                    <div className="relative w-full group">
-                                        <button
-                                            onClick={triggerGroupIconUpload}
-                                            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold uppercase flex items-center justify-center gap-2 shadow-md transition-all hover:scale-[1.02] pr-12"
-                                        >
-                                            <ImageIcon className="w-5 h-5" /> Manage Group Icon
-                                        </button>
-                                        <button
-                                            onClick={() => togglePin('manage_icon')}
-                                            className={`absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-white/20 rounded-full transition-colors ${pinnedTools.includes('manage_icon') ? 'text-yellow-400' : 'text-white'}`}
                                             title="Pin to Main Screen"
                                         >
                                             <Pin className="w-5 h-5" />

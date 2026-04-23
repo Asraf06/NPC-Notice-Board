@@ -246,7 +246,7 @@ export default function NoticeModal({ notice, sourceRect, onClose, onShare, onEd
 
                                     {/* Body */}
                                     <motion.div
-                                        className="prose dark:prose-invert max-w-none text-base md:text-lg font-serif leading-relaxed opacity-90 mb-8 break-words"
+                                        className="prose dark:prose-invert max-w-none text-base md:text-lg font-serif leading-relaxed opacity-90 mb-8 break-words whitespace-pre-wrap"
                                         dangerouslySetInnerHTML={{ __html: n.body }}
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}

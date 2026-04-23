@@ -60,9 +60,13 @@ export function UIProvider({ children }: { children: ReactNode }) {
 
     const closeAlert = useCallback(() => {
         setAlertState(prev => ({ ...prev, visible: false }));
-        setTimeout(() => {
-            if (alertState.callback) alertState.callback();
-        }, 200);
+    }, []);
+
+    // Confirm = close + run callback
+    const confirmAlert = useCallback(() => {
+        const cb = alertState.callback;
+        setAlertState(prev => ({ ...prev, visible: false }));
+        if (cb) setTimeout(() => cb(), 200);
     }, [alertState.callback]);
 
     // Profile state
@@ -144,14 +148,32 @@ export function UIProvider({ children }: { children: ReactNode }) {
                     </div>
 
                     <h3 className="text-xl font-bold uppercase mb-2">{alertState.title}</h3>
-                    <p className="text-sm opacity-70 mb-6">{alertState.message}</p>
-                    <button
-                        onClick={closeAlert}
-                        className="w-full py-3 bg-black text-white dark:bg-white dark:text-black font-bold uppercase hover:opacity-80 transition-all"
-                        autoFocus
-                    >
-                        OK
-                    </button>
+                    <p className="text-sm opacity-70 mb-6 whitespace-pre-line">{alertState.message}</p>
+                    {alertState.callback ? (
+                        <div className="flex gap-3">
+                            <button
+                                onClick={closeAlert}
+                                className="flex-1 py-3 border-2 border-black dark:border-zinc-600 font-bold uppercase text-sm hover:bg-gray-100 dark:hover:bg-zinc-900 transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmAlert}
+                                className="flex-1 py-3 bg-black text-white dark:bg-white dark:text-black font-bold uppercase text-sm hover:opacity-80 transition-all"
+                                autoFocus
+                            >
+                                OK
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={closeAlert}
+                            className="w-full py-3 bg-black text-white dark:bg-white dark:text-black font-bold uppercase hover:opacity-80 transition-all"
+                            autoFocus
+                        >
+                            OK
+                        </button>
+                    )}
                 </div>
             </div>
 

@@ -224,15 +224,15 @@ export default function NotificationBell() {
                                         </div>
 
                                         {/* Actions */}
-                                        <div className="flex flex-col gap-2 shrink-0 self-center">
+                                        <div className="flex flex-col gap-2 shrink-0 self-center items-center">
                                             <button
                                                 onClick={(e) => handleDelete(e, n.id)}
-                                                className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                                className="p-1.5 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-400 hover:text-red-500 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                                                 title="Delete notification"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>
-                                            <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-40 transition-opacity" />
+                                            <ExternalLink className="w-3.5 h-3.5 opacity-40 sm:opacity-0 sm:group-hover:opacity-40 transition-opacity" />
                                         </div>
                                     </div>
                                 ))

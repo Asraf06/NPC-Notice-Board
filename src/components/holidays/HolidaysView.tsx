@@ -408,7 +408,7 @@ export default function HolidaysView() {
                 )}
     
 {showSettings && (
-                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
                         <div className="bg-white dark:bg-black border-2 border-black dark:border-white w-full max-w-sm overflow-hidden shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] dark:shadow-[16px_16px_0px_0px_rgba(255,255,255,1)] animate-in fade-in zoom-in duration-200">
                             <div className="bg-black text-white dark:bg-white dark:text-black p-4 flex justify-between items-center">
                                 <h3 className="font-bold uppercase tracking-widest flex items-center gap-2"><Settings className="w-5 h-5"/> Alerts</h3>
