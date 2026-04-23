@@ -326,6 +326,7 @@ export default function MaterialView() {
                     isOpen={showUploadModal}
                     onClose={() => setShowUploadModal(false)}
                     onUploaded={loadMaterials}
+                    tabNames={tabNames}
                 />
 
                 {/* Delete Modal */}

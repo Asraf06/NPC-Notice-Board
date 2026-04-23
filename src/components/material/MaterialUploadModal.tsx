@@ -15,9 +15,10 @@ interface MaterialUploadModalProps {
     isOpen: boolean;
     onClose: () => void;
     onUploaded: () => void;
+    tabNames?: Record<string, string>;
 }
 
-export default function MaterialUploadModal({ isOpen, onClose, onUploaded }: MaterialUploadModalProps) {
+export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNames }: MaterialUploadModalProps) {
     const { userProfile } = useAuth();
     const { showAlert, showToast } = useUI();
     const [uploadMode, setUploadMode] = useState<'file' | 'link'>('file');
@@ -196,9 +197,9 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded }: Mat
                                 value={materialType}
                                 onChange={setMaterialType}
                                 options={[
-                                    { value: 'Syllabus', label: 'Official Syllabus' },
-                                    { value: 'Note', label: 'Lecture Notes' },
-                                    { value: 'Question', label: 'Question Papers' }
+                                    { value: 'Syllabus', label: tabNames?.syllabus || 'Official Syllabus' },
+                                    { value: 'Note', label: tabNames?.notes || 'Lecture Notes' },
+                                    { value: 'Question', label: tabNames?.questions || 'Question Papers' }
                                 ]}
                                 placeholder="Select Type"
                                 className="w-full p-3 border-2 border-black dark:border-white bg-white dark:bg-black font-mono text-sm outline-none"
