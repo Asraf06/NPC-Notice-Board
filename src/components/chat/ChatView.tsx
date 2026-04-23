@@ -10,7 +10,7 @@ import {
     collection, onSnapshot, doc, writeBatch, deleteDoc, getDoc, getDocs, query, where, serverTimestamp as fsServerTimestamp
 } from 'firebase/firestore';
 import {
-    ref, onValue, push, update, serverTimestamp as rtdbServerTimestamp, off, runTransaction
+    ref, onValue, push, update, remove, serverTimestamp as rtdbServerTimestamp, off, runTransaction
 } from 'firebase/database';
 import { useRouter } from 'next/navigation';
 import { secureUploadFile } from '@/lib/uploadService';
@@ -18,7 +18,7 @@ import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '@/lib/cropImage';
 import ChatSidebar from './ChatSidebar';
 import ChatArea from './ChatArea';
-import { ArrowLeft, Settings, Image as ImageIcon, X, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, Settings, Image as ImageIcon, X, Check, Loader2, Trash2, Upload } from 'lucide-react';
 
 /* ─── Types ─── */
 export interface FriendData {
@@ -126,6 +126,7 @@ export default function ChatView({ initialTab }: { initialTab?: string }) {
     const [groupIconZoom, setGroupIconZoom] = useState(1);
     const [groupIconCroppedArea, setGroupIconCroppedArea] = useState<any>(null);
     const [isGroupIconUploading, setIsGroupIconUploading] = useState(false);
+    const [showGroupIconMenu, setShowGroupIconMenu] = useState(false);
 
     // ── Peer Presence ──
     const [peerStatus, setPeerStatus] = useState<'online' | 'offline'>('offline');
@@ -588,10 +589,49 @@ export default function ChatView({ initialTab }: { initialTab?: string }) {
 
     const triggerGroupIconUpload = () => {
         if (userProfile?.isCR || userProfile?.role === 'admin') {
-            groupIconInputRef.current?.click();
+            setShowGroupIconMenu(prev => !prev);
         } else {
             showToast('Only Admins/CRs can change group icon.');
         }
+    };
+
+    const handleChangeGroupIcon = () => {
+        setShowGroupIconMenu(false);
+        groupIconInputRef.current?.click();
+    };
+
+    const handleRemoveGroupIcon = async () => {
+        setShowGroupIconMenu(false);
+        if (!activeChatId || !userProfile?.uid) return;
+
+        // Check if there's a custom icon to remove
+        const hasCustomIcon = activePeer?.photo && !activePeer.photo.includes('ui-avatars.com');
+        if (!hasCustomIcon) {
+            showToast('No custom icon to remove.');
+            return;
+        }
+
+        showAlert(
+            'Remove Group Icon',
+            'Are you sure you want to remove the group icon and use the default?',
+            'warning',
+            async () => {
+                try {
+                    await remove(ref(rtdb, `group_chats_meta/${activeChatId}/photoURL`));
+
+                    // Update active peer to default avatar
+                    if (activePeer) {
+                        const defaultPhoto = `https://ui-avatars.com/api/?name=${encodeURIComponent(activePeer.name)}&background=22c55e&color=fff`;
+                        setActiveChat(activeChatId, { ...activePeer, photo: defaultPhoto });
+                    }
+
+                    showToast('Group icon removed.');
+                } catch (err) {
+                    console.error(err);
+                    showAlert('Error', 'Failed to remove group icon.', 'error');
+                }
+            }
+        );
     };
 
     /* ─── Compute total unread ─── */
@@ -770,6 +810,34 @@ export default function ChatView({ initialTab }: { initialTab?: string }) {
                 accept="image/*"
                 onChange={handleGroupIconFileSelect}
             />
+
+            {/* Group Icon Options Menu */}
+            {showGroupIconMenu && (
+                <div className="fixed inset-0 z-[190]" onClick={() => setShowGroupIconMenu(false)}>
+                    <div
+                        className="fixed top-16 right-4 md:right-auto md:left-1/2 md:-translate-x-1/2 bg-white dark:bg-zinc-900 border-2 border-black dark:border-zinc-700 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.1)] w-56 z-[191]"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="px-4 py-2.5 border-b-2 border-black dark:border-zinc-700 bg-gray-50 dark:bg-zinc-800">
+                            <p className="text-[10px] font-black uppercase tracking-wider opacity-60">Group Icon</p>
+                        </div>
+                        <button
+                            onClick={handleChangeGroupIcon}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold font-mono hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors text-left"
+                        >
+                            <Upload className="w-4 h-4 opacity-60" />
+                            Change Icon
+                        </button>
+                        <button
+                            onClick={handleRemoveGroupIcon}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold font-mono hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 transition-colors text-left border-t border-gray-100 dark:border-zinc-800"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Remove Icon
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Group Icon Crop Modal */}
             {groupIconSrc && (
