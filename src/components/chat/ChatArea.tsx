@@ -782,7 +782,7 @@ function MessageBubble({
                 {showAvatar && (
                     <img src={msg.senderPhoto || `https://ui-avatars.com/api/?name=${senderName}`} className="w-8 h-8 rounded-full border border-gray-400 grayscale shrink-0 mb-1" alt="" referrerPolicy="no-referrer" />
                 )}
-                <div className={`${sz.maxW} flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                <div className={`${sz.maxW} min-w-0 flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     {showName && (
                         <span className="text-[10px] font-black uppercase opacity-40 mb-1 tracking-widest px-1">
                             {senderName}{msg.isCR && ' (CR)'}
@@ -790,7 +790,7 @@ function MessageBubble({
                     )}
                     <div
                         onClick={handleBubbleClick}
-                        className={`${sz.px} ${sz.py} text-sm relative border-2 border-black dark:border-white transition-all duration-300 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] ${bg} cursor-pointer`}
+                        className={`${sz.px} ${sz.py} text-sm relative border-2 border-black dark:border-white transition-all duration-300 hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] ${bg} cursor-pointer overflow-hidden max-w-full`}
                     >
                         {msg.replyTo && <ReplyPreview data={{ 
                             id: typeof msg.replyTo === 'object' ? (msg.replyTo as any).id : msg.replyTo, 
@@ -820,7 +820,7 @@ function MessageBubble({
                             </Link>
                         )}
                         {msg.text && (
-                            <p className="font-mono whitespace-pre-wrap leading-relaxed break-words">{msg.text}</p>
+                            <p className="font-mono whitespace-pre-wrap leading-relaxed break-words overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{msg.text}</p>
                         )}
                         <p className="text-[8px] opacity-50 mt-2 font-mono text-right">{time}</p>
                         <BubbleActions onReply={onReply} onUnsend={onUnsend} isMe={isMe} theme="classic" visible={isActionsVisible} />
@@ -838,7 +838,7 @@ function MessageBubble({
                 {showAvatar && (
                     <img src={msg.senderPhoto || `https://ui-avatars.com/api/?name=${senderName}`} className="w-9 h-9 border-2 border-white grayscale shrink-0 mb-1" alt="" referrerPolicy="no-referrer" />
                 )}
-                <div className={`${sz.maxW} flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                <div className={`${sz.maxW} min-w-0 flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     {showName && (
                         <span className="text-[10px] font-mono text-white mb-1 uppercase tracking-[0.3em] font-bold">
                             &gt; {senderName}{msg.isCR && ' [CR]'}
@@ -846,7 +846,7 @@ function MessageBubble({
                     )}
                     <div
                         onClick={handleBubbleClick}
-                        className={`${sz.px} ${sz.py} text-xs relative font-mono tracking-wide transition-all duration-300 ${bg} cursor-pointer`}
+                        className={`${sz.px} ${sz.py} text-xs relative font-mono tracking-wide transition-all duration-300 ${bg} cursor-pointer overflow-hidden max-w-full`}
                     >
                         {msg.replyTo && <ReplyPreview data={{ 
                             id: typeof msg.replyTo === 'object' ? (msg.replyTo as any).id : msg.replyTo, 
@@ -875,7 +875,7 @@ function MessageBubble({
                             </Link>
                         )}
                         {msg.text && (
-                            <p className="whitespace-pre-wrap leading-relaxed break-all">{msg.text}</p>
+                            <p className="whitespace-pre-wrap leading-relaxed break-words overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{msg.text}</p>
                         )}
                         <p className="text-[9px] opacity-40 mt-3 text-right uppercase font-bold">{time}</p>
                         <BubbleActions onReply={onReply} onUnsend={onUnsend} isMe={isMe} theme="digital" visible={isActionsVisible} />
@@ -895,7 +895,7 @@ function MessageBubble({
             {showAvatar && (
                 <img src={msg.senderPhoto || `https://ui-avatars.com/api/?name=${senderName}`} className="w-8 h-8 rounded-full border-2 border-zinc-700 shadow-md shrink-0 mb-1" alt="" referrerPolicy="no-referrer" />
             )}
-            <div className={`${sz.maxW} flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+            <div className={`${sz.maxW} min-w-0 flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                 {showName && (
                     <span className={`text-[10px] font-black uppercase mb-1 tracking-tight px-2 flex items-center gap-1.5 ${isTeacher ? 'text-amber-500' : 'text-blue-400'}`}>
                         {senderName} {msg.isCR && <span className="bg-purple-600 text-[8px] px-1.5 py-0.5 rounded-full text-white">CR</span>}
@@ -903,7 +903,7 @@ function MessageBubble({
                 )}
                 <div
                     onClick={handleBubbleClick}
-                    className={`${sz.px} ${sz.py} relative transition-all duration-300 hover:scale-[1.01] ${bg} cursor-pointer`}
+                    className={`${sz.px} ${sz.py} relative transition-all duration-300 hover:scale-[1.01] ${bg} cursor-pointer overflow-hidden max-w-full`}
                 >
                     {msg.replyTo && <ReplyPreview data={{ 
                         id: typeof msg.replyTo === 'object' ? (msg.replyTo as any).id : msg.replyTo, 
@@ -933,7 +933,7 @@ function MessageBubble({
                         </Link>
                     )}
                     {msg.text && (
-                        <p className="leading-relaxed whitespace-pre-wrap break-words">{msg.text}</p>
+                        <p className="leading-relaxed whitespace-pre-wrap break-words overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{msg.text}</p>
                     )}
                     <div className="flex items-center justify-end gap-1.5 mt-2 opacity-40 text-[9px] font-bold uppercase tracking-widest">
                         {msg.edited && <span>Edited</span>}
@@ -947,7 +947,7 @@ function MessageBubble({
 }
 
 function ReplyPreview({ data, theme, isMe }: { data: any, theme: string, isMe: boolean }) {
-    const base = "mb-2 pl-3 border-l-4 py-2 text-xs rounded transition-all";
+    const base = "mb-2 pl-3 border-l-4 py-2 text-xs rounded transition-all overflow-hidden";
     const styles: any = {
         classic: `${base} border-black bg-black/5 dark:bg-white/5 font-mono opacity-80`,
         digital: `${base} border-white bg-white/5 font-mono text-cyan-300`,
@@ -955,12 +955,13 @@ function ReplyPreview({ data, theme, isMe }: { data: any, theme: string, isMe: b
     };
 
     const sender = typeof data === 'object' ? (data.sender || 'User') : 'User';
-    const text = typeof data === 'object' ? (data.text || 'Attachment') : String(data);
+    const rawText = typeof data === 'object' ? (data.text || 'Attachment') : String(data);
+    const text = rawText.length > 50 ? rawText.substring(0, 50) + '...' : rawText;
 
     return (
         <div className={styles[theme] || styles.modern}>
             <span className="font-black block text-[9px] uppercase tracking-tighter mb-1 select-none">{sender}</span>
-            <p className="truncate opacity-75 italic text-[11px]">{text}</p>
+            <p className="truncate opacity-75 italic text-[11px] max-w-full">{text}</p>
         </div>
     );
 }
