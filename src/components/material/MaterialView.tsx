@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookOpen, FileText, HelpCircle } from 'lucide-react';
-import { db } from '@/lib/firebase';
-import { collection, query, where, orderBy, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { BookOpen, FileText, HelpCircle, Edit3 } from 'lucide-react';
+import { db, rtdb } from '@/lib/firebase';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { ref, onValue, update } from 'firebase/database';
 import { useAuth } from '@/context/AuthContext';
 import MaterialCard from './MaterialCard';
 import MaterialUploadModal from './MaterialUploadModal';
@@ -61,6 +62,7 @@ export default function MaterialView() {
     const [isLoading, setIsLoading] = useState(true);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [materialToDelete, setMaterialToDelete] = useState<string | null>(null);
+    const [tabNames, setTabNames] = useState<Record<string, string>>({});
 
     // Load materials from Firestore
     const loadMaterials = useCallback(async () => {
@@ -92,12 +94,45 @@ export default function MaterialView() {
         loadMaterials();
     }, [loadMaterials]);
 
+    // Load custom tab names from RTDB
+    useEffect(() => {
+        if (!userProfile) return;
+        const dbRef = ref(rtdb, `class_material_tabs/${userProfile.dept}_${userProfile.sem}_${userProfile.section}`);
+        
+        const unsubscribe = onValue(dbRef, (snapshot) => {
+            if (snapshot.exists()) {
+                setTabNames(snapshot.val());
+            } else {
+                setTabNames({});
+            }
+        });
+        
+        return () => unsubscribe();
+    }, [userProfile]);
+
     // Can upload? (CR or Admin)
     const canUpload = userProfile && (
         userProfile.isCR ||
         userProfile.role === 'admin' ||
         userProfile.email === 'admin@gmail.com'
     );
+
+    const handleEditTabName = async (tab: TabKey) => {
+        if (!canUpload || !userProfile) return;
+        const currentName = tabNames[tab] || TAB_CONFIG[tab].label;
+        const newName = window.prompt(`Enter new name for ${TAB_CONFIG[tab].label}:`, currentName);
+        
+        if (newName && newName.trim() !== '' && newName.trim() !== currentName) {
+            try {
+                const dbRef = ref(rtdb, `class_material_tabs/${userProfile.dept}_${userProfile.sem}_${userProfile.section}`);
+                await update(dbRef, {
+                    [tab]: newName.trim()
+                });
+            } catch (error) {
+                console.error("Failed to update tab name", error);
+            }
+        }
+    };
 
     // Filter materials by type for each category
     const getMaterialsForTab = (tab: TabKey): MaterialData[] => {
@@ -203,11 +238,22 @@ export default function MaterialView() {
                 <Icon className="absolute -right-4 -bottom-4 w-24 h-24 opacity-5 -rotate-12 group-hover:rotate-0 transition-transform" />
 
                 {/* Section Header */}
-                <div className="flex items-center gap-3 mb-4">
-                    <div className={`p-2 ${config.iconBg}`}>
-                        <Icon className={`w-6 h-6 ${config.iconColor}`} />
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 ${config.iconBg}`}>
+                            <Icon className={`w-6 h-6 ${config.iconColor}`} />
+                        </div>
+                        <h3 className="font-bold uppercase tracking-widest text-sm">{tabNames[tab] || config.label}</h3>
                     </div>
-                    <h3 className="font-bold uppercase tracking-widest text-sm">{config.label}</h3>
+                    {canUpload && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleEditTabName(tab); }}
+                            className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors z-20"
+                            title="Edit Tab Name"
+                        >
+                            <Edit3 className="w-4 h-4 opacity-50 hover:opacity-100" />
+                        </button>
+                    )}
                 </div>
 
                 {/* Material List */}
@@ -263,16 +309,17 @@ export default function MaterialView() {
                         {TABS.map(tab => {
                             const config = TAB_CONFIG[tab];
                             const isActive = activeTab === tab;
+                            const displayName = tabNames[tab] || (config.label.split(' ')[0] === 'Lecture' ? 'Notes' : config.label.split(' ')[0]);
                             return (
                                 <button
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
-                                    className={`flex-1 py-2.5 text-xs font-black uppercase tracking-wider border-2 transition-all ${isActive
+                                    className={`flex-1 py-2.5 text-[10px] sm:text-xs font-black uppercase tracking-wider border-2 transition-all overflow-hidden text-ellipsis whitespace-nowrap px-1 ${isActive
                                         ? `${config.activeColor} text-white border-black`
                                         : 'bg-gray-200 dark:bg-zinc-800 text-black dark:text-white border-transparent'
                                         }`}
                                 >
-                                    {config.label.split(' ')[0] === 'Lecture' ? 'Notes' : config.label.split(' ')[0]}
+                                    {displayName}
                                 </button>
                             );
                         })}
