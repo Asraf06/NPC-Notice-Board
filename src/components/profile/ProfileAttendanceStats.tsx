@@ -10,7 +10,12 @@ import { Calendar as CalendarIcon, Clock, AlertTriangle, CheckCircle, ArrowRight
 interface AttendanceRecord {
     id: string;
     uid: string;
+    studentName?: string;
+    boardRoll?: string;
+    dept?: string;
+    sem?: string;
     date: string;
+    period?: string;
     status: 'present' | 'absent' | 'late';
 }
 
@@ -26,19 +31,50 @@ export default function ProfileAttendanceStats() {
                 return;
             }
 
+            const theRoll = String(userProfile.roll || (userProfile as any).boardRoll || "");
+            if (!theRoll) {
+                setRecords([]);
+                setLoading(false);
+                return;
+            }
+
             try {
-                const attendanceQuery = query(
+                // Fetch from published records (attendance_records)
+                const recordsQuery = query(
                     collection(db, 'attendance_records'),
-                    where('uid', '==', user.uid)
+                    where('boardRoll', '==', theRoll)
                 );
                 
-                const snapshot = await getDocs(attendanceQuery);
-                const fetchedRecords: AttendanceRecord[] = [];
-                snapshot.forEach(doc => {
-                    fetchedRecords.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
+                // Fetch from live sessions (attendance_sessions)
+                const sessionsQuery = query(
+                    collection(db, 'attendance_sessions'),
+                    where('boardRoll', '==', theRoll)
+                );
+                
+                const [recordsSnap, sessionsSnap] = await Promise.all([
+                    getDocs(recordsQuery),
+                    getDocs(sessionsQuery)
+                ]);
+                
+                const fetchedRecordsMap = new Map<string, AttendanceRecord>();
+                
+                // Add published records first
+                recordsSnap.forEach(doc => {
+                    const data = doc.data() as AttendanceRecord;
+                    if (data.dept === userProfile.dept && data.sem === userProfile.sem) {
+                        fetchedRecordsMap.set(doc.id, { ...data, id: doc.id });
+                    }
                 });
 
-                setRecords(fetchedRecords);
+                // Add live session records
+                sessionsSnap.forEach(doc => {
+                    const data = doc.data() as AttendanceRecord;
+                    if (data.dept === userProfile.dept && data.sem === userProfile.sem) {
+                        fetchedRecordsMap.set(doc.id, { ...data, id: doc.id });
+                    }
+                });
+
+                setRecords(Array.from(fetchedRecordsMap.values()));
             } catch (error) {
                 console.error("Error fetching attendance records:", error);
             } finally {

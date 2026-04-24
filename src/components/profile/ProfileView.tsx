@@ -11,7 +11,7 @@ import ProfileAttendanceStats from './ProfileAttendanceStats';
 import ApplyCRModal from './ApplyCRModal';
 
 export default function ProfileView() {
-    const { user, userProfile, updateUserProfile } = useAuth();
+    const { user, userProfile, updateUserProfile, handleForgotPassword } = useAuth();
     const { showAlert, showToast } = useUI();
     
     // Editing states
@@ -420,6 +420,39 @@ export default function ProfileView() {
                     </div>
                 </div>
 
+                {/* Security Settings */}
+                <div className="border-2 border-black dark:border-zinc-800 bg-white dark:bg-black mb-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.05)]">
+                    <div className="px-6 py-4 border-b-2 border-black dark:border-zinc-800">
+                        <h3 className="font-bold uppercase text-xs tracking-wider flex items-center gap-2">
+                            <Shield className="w-4 h-4" /> Security Settings
+                        </h3>
+                    </div>
+                    <div className="p-6 flex flex-col gap-6">
+                        {/* Password Reset */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b-2 border-dashed border-gray-200 dark:border-zinc-800 pb-6">
+                            <div>
+                                <h4 className="font-bold uppercase text-sm mb-1">Reset Password</h4>
+                                <p className="text-xs font-mono opacity-60 max-w-sm">
+                                    Receive an email with a link to securely change your account password.
+                                </p>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        await handleForgotPassword(userProfile.email);
+                                        showAlert('Email Sent', 'Check your inbox for the password reset link.', 'success');
+                                    } catch (error: any) {
+                                        showAlert('Error', error.message || 'Could not send reset email.', 'error');
+                                    }
+                                }}
+                                className="bg-black text-white dark:bg-white dark:text-black font-bold uppercase text-xs px-4 py-2 hover:opacity-80 transition-opacity whitespace-nowrap self-start md:self-auto"
+                            >
+                                Send Reset Link
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 {/* CR Application Section */}
                 {userProfile.role !== 'admin' && !userProfile.isCR && (
                     <div className="mt-8 mb-4 border-2 border-black dark:border-zinc-800 bg-purple-50 dark:bg-purple-950/20 p-6 flex flex-col items-center text-center">
@@ -442,6 +475,8 @@ export default function ProfileView() {
                 isOpen={showCRModal} 
                 onClose={() => setShowCRModal(false)} 
             />
+
+
         </div>
     );
 }

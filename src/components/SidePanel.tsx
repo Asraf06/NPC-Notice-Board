@@ -22,7 +22,8 @@ import {
     Download,
     ClipboardCheck,
     BookOpen,
-    CalendarDays
+    CalendarDays,
+    FileText
 } from 'lucide-react';
 
 interface SidePanelProps {
@@ -34,6 +35,7 @@ const baseMenuItems = [
     { id: '/notices', label: 'Notices', icon: LayoutGrid },
     { id: '/books', label: 'Book List', icon: BookOpen },
     { id: '/attendance', label: 'Attendance', icon: ClipboardCheck },
+    { id: '/exam-info', label: 'Exam Info', icon: FileText },
     { id: '/holidays', label: 'Holidays', icon: CalendarDays },
     { id: '/profile', label: 'Profile', icon: User },
     { id: '/install', label: 'Install App', icon: Download },
