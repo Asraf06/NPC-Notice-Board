@@ -14,7 +14,8 @@ import {
     ClipboardCheck,
     BookOpen,
     CalendarDays,
-    FileText
+    FileText,
+    PartyPopper
 } from 'lucide-react';
 
 const baseSidebarItems = [
@@ -22,6 +23,7 @@ const baseSidebarItems = [
     { id: '/books', label: 'Book List', icon: BookOpen },
     { id: '/attendance', label: 'Attendance', icon: ClipboardCheck },
     { id: '/exam-info', label: 'Exam Info', icon: FileText },
+    { id: '/events', label: 'Events', icon: PartyPopper },
     { id: '/holidays', label: 'Holidays', icon: CalendarDays },
     { id: '/profile', label: 'Profile', icon: User },
     { id: '/install', label: 'Install App', icon: Download },
