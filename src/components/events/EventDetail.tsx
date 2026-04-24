@@ -7,6 +7,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useUI } from '@/context/UIContext';
 import type { EventData, EnrollmentData } from './types';
 
+import { deleteUploadedFiles } from '@/lib/uploadService';
+
 interface Props {
     event: EventData;
     onBack: () => void;
@@ -88,6 +90,10 @@ export default function EventDetail({ event, onBack, onEdit }: Props) {
         if (!event.id) return;
         setDeleting(true);
         try {
+            // Delete associated images
+            if (event.images && event.images.length > 0) {
+                await deleteUploadedFiles(event.images);
+            }
             // Delete all enrollments first
             for (const e of enrollments) {
                 await deleteDoc(doc(db, 'events', event.id, 'enrollments', e.id!));
@@ -126,6 +132,11 @@ export default function EventDetail({ event, onBack, onEdit }: Props) {
 
                 {/* Event Header */}
                 <div className="border-2 border-black dark:border-zinc-800 bg-white dark:bg-zinc-900 mb-6 overflow-hidden">
+                    {event.images && event.images.length > 0 && (
+                        <div className="w-full h-48 md:h-64 border-b border-black/10 dark:border-zinc-700 bg-gray-100 dark:bg-zinc-800 relative">
+                            <img src={event.images[0].url} alt="Event Cover" className="w-full h-full object-cover" />
+                        </div>
+                    )}
                     <div className={`px-5 py-3 border-b border-black/10 dark:border-zinc-700 flex items-center justify-between ${event.isActive ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'bg-red-50 dark:bg-red-950/20'}`}>
                         <span className="text-[10px] font-black uppercase tracking-widest opacity-60 flex items-center gap-1">
                             {event.isActive ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
@@ -136,6 +147,17 @@ export default function EventDetail({ event, onBack, onEdit }: Props) {
                     <div className="p-5 md:p-6">
                         <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tighter mb-3">{event.title}</h1>
                         {event.description && <p className="text-sm opacity-70 whitespace-pre-wrap mb-4">{event.description}</p>}
+                        
+                        {event.images && event.images.length > 1 && (
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-4">
+                                {event.images.slice(1).map((img, i) => (
+                                    <div key={i} className="aspect-video bg-gray-100 dark:bg-zinc-800 border border-black/10 dark:border-zinc-700">
+                                        <img src={img.url} className="w-full h-full object-cover" alt={`Event Image ${i+2}`} />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
                         <div className="flex flex-wrap gap-3 text-xs font-mono">
                             {event.date && <span className="bg-gray-100 dark:bg-zinc-800 px-3 py-1.5 border border-gray-200 dark:border-zinc-700 flex items-center gap-1"><CalendarClock className="w-3 h-3" /> {event.date}</span>}
                             {event.time && <span className="bg-gray-100 dark:bg-zinc-800 px-3 py-1.5 border border-gray-200 dark:border-zinc-700 flex items-center gap-1"><Clock className="w-3 h-3" /> {event.time}</span>}

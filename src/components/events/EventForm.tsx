@@ -1,8 +1,9 @@
 'use client';
 import { useState } from 'react';
-import { ArrowLeft, Plus, Trash2, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Loader2, Save, ImagePlus, X } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, setDoc, serverTimestamp, collection } from 'firebase/firestore';
+import { secureUploadFile, deleteUploadedFiles } from '@/lib/uploadService';
 import { useAuth } from '@/context/AuthContext';
 import { useUI } from '@/context/UIContext';
 import type { EventData, CustomField } from './types';
@@ -24,14 +25,15 @@ export default function EventForm({ event, onBack }: Props) {
     const [time, setTime] = useState(event?.time || '');
     const [location, setLocation] = useState(event?.location || '');
     const [deadline, setDeadline] = useState(event?.deadline || '');
-    const [targetDept, setTargetDept] = useState(event?.targetDept || (isAdmin ? 'all' : userProfile?.dept || ''));
-    const [targetSem, setTargetSem] = useState(event?.targetSem || (isAdmin ? 'all' : userProfile?.sem || ''));
-    const [targetSection, setTargetSection] = useState(event?.targetSection || (isAdmin ? 'all' : userProfile?.section || ''));
     const [isActive, setIsActive] = useState(event?.isActive ?? true);
     const [customFields, setCustomFields] = useState<CustomField[]>(event?.customFields || []);
     const [saving, setSaving] = useState(false);
 
-    // Date helpers
+    // Image state
+    const [images, setImages] = useState<{ url: string; fileId: string | null; service: string }[]>(event?.images || []);
+    const [uploading, setUploading] = useState(false);
+
+    // Date helpers: dd/mm/yyyy <-> yyyy-mm-dd
     const toISO = (d: string) => { if (!d) return ''; const p = d.split('/'); return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : d; };
     const fromISO = (d: string) => { if (!d) return ''; const p = d.split('-'); return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : d; };
 
@@ -41,6 +43,45 @@ export default function EventForm({ event, onBack }: Props) {
     const removeField = (id: string) => setCustomFields(prev => prev.filter(f => f.id !== id));
     const updateField = (id: string, key: keyof CustomField, val: any) => {
         setCustomFields(prev => prev.map(f => f.id === id ? { ...f, [key]: val } : f));
+    };
+
+    // Build folder path: /events/{dept}_{sem}_{section}
+    const getFolderPath = () => {
+        const dept = userProfile?.dept || 'unknown';
+        const sem = userProfile?.sem || 'unknown';
+        const section = userProfile?.section || 'unknown';
+        return `/events/${dept}_${sem}_${section}`;
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        setUploading(true);
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const result = await secureUploadFile(files[i], getFolderPath());
+                if (result) {
+                    setImages(prev => [...prev, { url: result.url, fileId: result.fileId, service: result.service }]);
+                }
+            }
+        } catch (err: any) {
+            showAlert('Upload Error', err.message || 'Failed to upload image.', 'error');
+        } finally {
+            setUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleRemoveImage = async (idx: number) => {
+        const img = images[idx];
+        if (img.fileId) {
+            try {
+                await deleteUploadedFiles([{ service: img.service, fileId: img.fileId }]);
+            } catch (err) {
+                console.error('Failed to delete image from CDN:', err);
+            }
+        }
+        setImages(prev => prev.filter((_, i) => i !== idx));
     };
 
     const handleSave = async () => {
@@ -54,9 +95,12 @@ export default function EventForm({ event, onBack }: Props) {
                 description: description.trim(),
                 date, time, location: location.trim(),
                 deadline,
-                targetDept, targetSem, targetSection,
+                targetDept: isAdmin ? 'all' : userProfile.dept,
+                targetSem: isAdmin ? 'all' : userProfile.sem,
+                targetSection: isAdmin ? 'all' : userProfile.section,
                 isActive,
                 customFields: customFields.filter(f => f.label.trim()),
+                images,
                 updatedAt: serverTimestamp(),
             };
             if (!isEdit) {
@@ -101,7 +145,7 @@ export default function EventForm({ event, onBack }: Props) {
                     {/* Date, Time, Location */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 block mb-1">Date</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 block mb-1">Date (dd/mm/yyyy)</label>
                             <input type="date" value={toISO(date)} onChange={e => setDate(fromISO(e.target.value))} className="edit-input w-full" />
                         </div>
                         <div>
@@ -116,40 +160,42 @@ export default function EventForm({ event, onBack }: Props) {
 
                     {/* Deadline */}
                     <div>
-                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 block mb-1">Enrollment Deadline</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest opacity-40 block mb-1">Enrollment Deadline (dd/mm/yyyy)</label>
                         <input type="date" value={toISO(deadline)} onChange={e => setDeadline(fromISO(e.target.value))} className="edit-input w-full md:w-1/3" />
                     </div>
 
-                    {/* Target Audience */}
+                    {/* Images */}
                     <div className="border-2 border-black dark:border-zinc-800 overflow-hidden">
-                        <div className="px-4 py-2 bg-black/5 dark:bg-white/5 border-b border-black/10 dark:border-zinc-700">
-                            <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Target Audience</span>
+                        <div className="px-4 py-2 bg-black/5 dark:bg-white/5 border-b border-black/10 dark:border-zinc-700 flex justify-between items-center">
+                            <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Event Images</span>
+                            <label className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 flex items-center gap-1 hover:opacity-70 cursor-pointer">
+                                <ImagePlus className="w-3 h-3" />
+                                {uploading ? 'Uploading...' : 'Add Image'}
+                                <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" disabled={uploading} />
+                            </label>
                         </div>
-                        <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 block mb-1">Department</label>
-                                {isAdmin ? (
-                                    <input value={targetDept} onChange={e => setTargetDept(e.target.value)} placeholder="all or dept name" className="edit-input w-full" />
-                                ) : (
-                                    <input value={targetDept} readOnly className="edit-input w-full opacity-50" />
-                                )}
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 block mb-1">Semester</label>
-                                {isAdmin ? (
-                                    <input value={targetSem} onChange={e => setTargetSem(e.target.value)} placeholder="all or semester" className="edit-input w-full" />
-                                ) : (
-                                    <input value={targetSem} readOnly className="edit-input w-full opacity-50" />
-                                )}
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-black uppercase tracking-widest opacity-40 block mb-1">Section</label>
-                                {isAdmin ? (
-                                    <input value={targetSection} onChange={e => setTargetSection(e.target.value)} placeholder="all or section" className="edit-input w-full" />
-                                ) : (
-                                    <input value={targetSection} readOnly className="edit-input w-full opacity-50" />
-                                )}
-                            </div>
+                        <div className="p-4">
+                            {images.length === 0 && !uploading && (
+                                <p className="text-xs opacity-30 text-center py-4 uppercase tracking-widest">No images added</p>
+                            )}
+                            {uploading && (
+                                <div className="flex items-center justify-center gap-2 py-4 text-xs font-bold uppercase opacity-50">
+                                    <Loader2 className="w-4 h-4 animate-spin" /> Uploading...
+                                </div>
+                            )}
+                            {images.length > 0 && (
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {images.map((img, idx) => (
+                                        <div key={idx} className="relative group border-2 border-black/10 dark:border-zinc-700 overflow-hidden aspect-video bg-gray-100 dark:bg-zinc-800">
+                                            <img src={img.url} alt={`Event image ${idx + 1}`} className="w-full h-full object-cover" />
+                                            <button onClick={() => handleRemoveImage(idx)}
+                                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
 

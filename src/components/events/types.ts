@@ -20,6 +20,7 @@ export interface EventData {
     targetSem: string;    // 'all' or specific sem
     targetSection: string;// 'all' or specific section
     customFields: CustomField[];
+    images: { url: string; fileId: string | null; service: string }[];
     isActive: boolean;
     createdAt?: any;
     updatedAt?: any;
