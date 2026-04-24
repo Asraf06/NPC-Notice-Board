@@ -146,7 +146,7 @@ export default function EventForm({ event, onBack }: Props) {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label className="text-[10px] font-black uppercase tracking-widest opacity-40 block mb-1">Date</label>
-                            <input type="text" value={date} onChange={e => setDate(e.target.value)} placeholder="dd/mm/yyyy" className="edit-input w-full" />
+                            <input type="date" value={toISO(date)} onChange={e => setDate(fromISO(e.target.value))} className="edit-input w-full" />
                         </div>
                         <div>
                             <label className="text-[10px] font-black uppercase tracking-widest opacity-40 block mb-1">Time</label>
@@ -161,7 +161,7 @@ export default function EventForm({ event, onBack }: Props) {
                     {/* Deadline */}
                     <div>
                         <label className="text-[10px] font-black uppercase tracking-widest opacity-40 block mb-1">Enrollment Deadline</label>
-                        <input type="text" value={deadline} onChange={e => setDeadline(e.target.value)} placeholder="dd/mm/yyyy" className="edit-input w-full md:w-1/3" />
+                        <input type="date" value={toISO(deadline)} onChange={e => setDeadline(fromISO(e.target.value))} className="edit-input w-full md:w-1/3" />
                     </div>
 
                     {/* Images */}
