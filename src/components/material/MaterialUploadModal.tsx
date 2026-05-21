@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, FileUp, Loader2 } from 'lucide-react';
+import { X, FileUp, Loader2, Plus, Trash2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { updateDoc, doc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
@@ -27,7 +27,7 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
     const [materialType, setMaterialType] = useState('Syllabus');
     const [subject, setSubject] = useState('');
     const [description, setDescription] = useState('');
-    const [linkUrl, setLinkUrl] = useState('');
+    const [linkUrls, setLinkUrls] = useState<string[]>(['']);
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
@@ -42,12 +42,18 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
             setMaterialType(editData.type);
             setSubject(editData.subject);
             setDescription(editData.description || '');
-            if (editData.service || editData.attachments) {
+            if (editData.service || (editData.attachments && editData.attachments.length > 0)) {
                 setUploadMode('file');
-                setLinkUrl('');
+                setLinkUrls(['']);
             } else {
                 setUploadMode('link');
-                setLinkUrl(editData.url || '');
+                // Populate from driveLinks array or fallback to single url
+                const existingLinks = (editData as any).driveLinks;
+                if (existingLinks && Array.isArray(existingLinks) && existingLinks.length > 0) {
+                    setLinkUrls(existingLinks);
+                } else {
+                    setLinkUrls(editData.url ? [editData.url] : ['']);
+                }
             }
         }
     }, [isOpen, editData]);
@@ -60,7 +66,7 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
         setMaterialType('Syllabus');
         setSubject('');
         setDescription('');
-        setLinkUrl('');
+        setLinkUrls(['']);
         setSelectedFiles([]);
         setIsSubmitting(false);
         setUploadProgress(0);
@@ -124,8 +130,9 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
                 }
             }
         } else {
-            if (!linkUrl.trim()) {
-                showAlert('Required', 'Paste a valid link!', 'warning');
+            const validLinks = linkUrls.filter(l => l.trim());
+            if (validLinks.length === 0) {
+                showAlert('Required', 'Paste at least one valid link!', 'warning');
                 return;
             }
         }
@@ -188,7 +195,9 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
                     }
                     // if NO selected files during edit file mode: keep existing
                 } else if (uploadMode === 'link') {
-                    updatePayload.url = linkUrl.trim();
+                    const validLinks = linkUrls.filter(l => l.trim()).map(l => l.trim());
+                    updatePayload.url = validLinks[0];
+                    updatePayload.driveLinks = validLinks;
                     updatePayload.service = null;
                     updatePayload.fileId = null;
                     updatePayload.attachments = [];
@@ -226,11 +235,13 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
                         attachments: uploadedFiles,
                     });
                 } else {
+                    const validLinks = linkUrls.filter(l => l.trim()).map(l => l.trim());
                     await addDoc(collection(db, 'materials'), {
                         type: materialType,
                         subject: subject.trim(),
                         description: description.trim(),
-                        url: linkUrl.trim(),
+                        url: validLinks[0],
+                        driveLinks: validLinks,
                         dept: userProfile.dept,
                         sem: userProfile.sem,
                         section: userProfile.section,
@@ -393,15 +404,42 @@ export default function MaterialUploadModal({ isOpen, onClose, onUploaded, tabNa
                             {uploadMode === 'link' && (
                                 <div>
                                     <label className="block text-[10px] font-bold uppercase mb-1 opacity-60 tracking-wider">
-                                        Drive / Docs Link
+                                        Drive / Docs Links
                                     </label>
-                                    <input
-                                        type="url"
-                                        value={linkUrl}
-                                        onChange={(e) => setLinkUrl(e.target.value)}
-                                        placeholder="https://drive.google.com/..."
-                                        className="w-full p-3 border-2 border-black dark:border-white bg-transparent font-mono text-sm outline-none focus:ring-2 focus:ring-purple-500"
-                                    />
+                                    <div className="space-y-2">
+                                        {linkUrls.map((linkVal, idx) => (
+                                            <div key={idx} className="flex gap-2 items-center">
+                                                <input
+                                                    type="url"
+                                                    value={linkVal}
+                                                    onChange={(e) => {
+                                                        const updated = [...linkUrls];
+                                                        updated[idx] = e.target.value;
+                                                        setLinkUrls(updated);
+                                                    }}
+                                                    placeholder={idx === 0 ? 'https://drive.google.com/...' : `Link ${idx + 1} (optional)`}
+                                                    className="flex-1 p-3 border-2 border-black dark:border-white bg-transparent font-mono text-sm outline-none focus:ring-2 focus:ring-purple-500"
+                                                />
+                                                {linkUrls.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setLinkUrls(prev => prev.filter((_, i) => i !== idx))}
+                                                        className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-950/40 border-2 border-red-300 dark:border-red-800 transition-colors shrink-0"
+                                                        title="Remove link"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setLinkUrls(prev => [...prev, ''])}
+                                        className="mt-2 w-full py-2 border-2 border-dashed border-black/20 dark:border-white/20 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 hover:border-purple-500 hover:text-purple-500 transition-colors"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" /> Add Another Link
+                                    </button>
                                     <p className="text-[9px] opacity-50 mt-1 font-mono">
                                         * Make sure the link is set to &quot;Anyone with the link can view&quot;
                                     </p>

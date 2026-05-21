@@ -57,6 +57,7 @@ export default function MaterialCard({ material, onView, onDownload, onDelete, o
                 <p className="text-[9px] opacity-50 font-mono tracking-tighter truncate uppercase">
                     {material.description || 'Global Resource'} {material.author && `• By ${material.author}`}
                     {material.attachments && material.attachments.length > 1 && ` • ${material.attachments.length} Files`}
+                    {(material as any).driveLinks && (material as any).driveLinks.length > 1 && ` • ${(material as any).driveLinks.length} Links`}
                 </p>
             </div>
 

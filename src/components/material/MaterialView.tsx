@@ -135,19 +135,47 @@ export default function MaterialView() {
     // View handler — opens document viewer route (client-side, no reload)
     const handleView = (material: MaterialData) => {
         const params = new URLSearchParams();
-        if (material.attachments && material.attachments.length > 0) {
+        // Check for driveLinks (multiple drive/docs links)
+        const driveLinks = (material as any).driveLinks;
+        if (driveLinks && Array.isArray(driveLinks) && driveLinks.length > 1) {
+            params.set('urls', JSON.stringify(driveLinks));
+            params.set('url', driveLinks[0]);
+            params.set('mode', 'drive');
+        } else if (material.attachments && material.attachments.length > 0) {
             params.set('urls', JSON.stringify(material.attachments.map(a => a.url)));
-            // Fallback url for the viewer if it expects a single one initially
             params.set('url', material.attachments[0].url);
         } else {
             params.set('url', material.url);
         }
         if (material.subject) params.set('title', material.subject);
+        if (material.description) params.set('desc', material.description);
         router.push(`/materials/view?${params.toString()}`);
     };
 
     // Download handler — direct download via client-side fetch (no new tab, no server proxy needed)
     const handleDownload = async (material: MaterialData) => {
+        // Check for driveLinks first
+        const driveLinks = (material as any).driveLinks;
+        if (driveLinks && Array.isArray(driveLinks) && driveLinks.length > 0) {
+            // Drive links can't be fetched via CORS, open direct download URLs
+            driveLinks.forEach((link: string) => {
+                let fileId = null;
+                const match = link.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                if (match) fileId = match[1];
+                else {
+                    const idMatch = link.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                    if (idMatch) fileId = idMatch[1];
+                }
+                
+                if (fileId) {
+                    window.open(`https://drive.google.com/uc?export=download&id=${fileId}`, '_blank');
+                } else {
+                    window.open(link, '_blank');
+                }
+            });
+            return;
+        }
+
         const downloadSingleFile = async (url: string, index?: number) => {
             const filename = material.subject ? (index !== undefined ? `${material.subject}-${index + 1}` : material.subject) : 'download';
             try {

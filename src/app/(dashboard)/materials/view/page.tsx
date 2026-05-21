@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useState, useEffect, Suspense } from 'react';
-import { ArrowLeft, Download, ExternalLink, FileText, Image as ImageIcon, Film, Maximize2, Minimize2, ZoomIn, ZoomOut, Search, ChevronUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, FileText, Image as ImageIcon, Film, Maximize2, Minimize2, ZoomIn, ZoomOut, Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import Link from 'next/link';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { useSmoothScroll } from '@/hooks/useSmoothScroll';
@@ -13,6 +13,8 @@ function DocumentViewerContent() {
     const url = searchParams.get('url') || '';
     const urlsParam = searchParams.get('urls');
     const title = searchParams.get('title') || 'Document';
+    const description = searchParams.get('desc') || '';
+    const isDriveMode = searchParams.get('mode') === 'drive';
 
     let urlsToRender: string[] = [];
     if (urlsParam) {
@@ -25,11 +27,24 @@ function DocumentViewerContent() {
         urlsToRender = [url];
     }
 
+    // Drive link pagination state
+    const [activeLinkIndex, setActiveLinkIndex] = useState(0);
+    const activeUrl = isDriveMode && urlsToRender.length > 1 ? urlsToRender[activeLinkIndex] : url;
+
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
     const [fileType, setFileType] = useState<'pdf' | 'image' | 'video' | 'other'>('other');
     const [isZoomEnabled, setIsZoomEnabled] = useState(false);
     const [isSpacePressed, setIsSpacePressed] = useState(false);
+    const [showDesc, setShowDesc] = useState(false);
+    const descRef = useRef<HTMLDivElement>(null);
+    const [descHeight, setDescHeight] = useState(0);
+
+    useEffect(() => {
+        if (descRef.current) {
+            setDescHeight(descRef.current.scrollHeight);
+        }
+    }, [description]);
 
     const pdfScrollRef = useRef<HTMLDivElement>(null);
     useSmoothScroll(pdfScrollRef);
@@ -76,6 +91,12 @@ function DocumentViewerContent() {
     }, []);
 
     const handleDownload = async (targetUrl?: string) => {
+        // For drive links, open in new tab (can't CORS-fetch drive URLs)
+        if (isDriveMode) {
+            window.open(targetUrl || activeUrl, '_blank');
+            return;
+        }
+
         const downloadSingle = async (fileUrl: string, name: string) => {
             try {
                 const res = await fetch(fileUrl);
@@ -117,10 +138,8 @@ function DocumentViewerContent() {
         if (targetUrl) {
             await downloadSingle(targetUrl, `${title}_image_${Date.now()}`);
         } else if (urlsToRender.length > 1) {
-            // Sequential download for multiple files
             for (let i = 0; i < urlsToRender.length; i++) {
                 await downloadSingle(urlsToRender[i], `${title}_part_${i + 1}`);
-                // Small delay to prevent browser blocking multiple downloads
                 await new Promise(r => setTimeout(r, 300));
             }
         } else {
@@ -133,12 +152,71 @@ function DocumentViewerContent() {
         setIsFullscreen(!isFullscreen);
     };
 
+    // Extract Google file ID from any Google Docs/Drive URL
+    const getDriveFileId = (rawUrl: string): string | null => {
+        // docs.google.com/document/d/ID/...
+        // docs.google.com/spreadsheets/d/ID/...
+        // docs.google.com/presentation/d/ID/...
+        // drive.google.com/file/d/ID/...
+        const match = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match) return match[1];
+        // drive.google.com/open?id=ID
+        const idMatch = rawUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (idMatch) return idMatch[1];
+        return null;
+    };
+
+    // Get Drive view URL (opens in Google Drive where user can download)
+    const getDriveViewUrl = (rawUrl: string): string => {
+        const fileId = getDriveFileId(rawUrl);
+        if (fileId) return `https://drive.google.com/file/d/${fileId}/view`;
+        return rawUrl;
+    };
+
+    // Get direct download URL from Drive
+    const getDriveDownloadUrl = (rawUrl: string): string => {
+        const fileId = getDriveFileId(rawUrl);
+        if (fileId) return `https://drive.google.com/uc?export=download&id=${fileId}`;
+        return rawUrl;
+    };
+
     // Appropriate Viewer URL based on file type
     const getViewerUrl = (rawUrl: string) => {
         const lowerUrl = rawUrl.toLowerCase();
+
+        // Google Docs (document/d/ID/...)
+        if (lowerUrl.includes('docs.google.com/document/d/')) {
+            return rawUrl.replace(/\/(edit|view|preview)(#.*)?(\?.*)?$/, '/preview');
+        }
+        // Google Sheets (spreadsheets/d/ID/...)
+        if (lowerUrl.includes('docs.google.com/spreadsheets/d/')) {
+            return rawUrl.replace(/\/(edit|view|preview)(#.*)?(\?.*)?$/, '/preview');
+        }
+        // Google Slides (presentation/d/ID/...)
+        if (lowerUrl.includes('docs.google.com/presentation/d/')) {
+            return rawUrl.replace(/\/(edit|view|preview)(#.*)?(\?.*)?$/, '/embed');
+        }
+        // Google Drive file (drive.google.com/file/d/ID/...)
+        if (lowerUrl.includes('drive.google.com/file/d/')) {
+            return rawUrl.replace(/\/(view|edit|preview)(#.*)?(\?.*)?$/, '/preview');
+        }
+        // Google Drive open link (drive.google.com/open?id=ID)
+        if (lowerUrl.includes('drive.google.com/open')) {
+            const idMatch = rawUrl.match(/[?&]id=([^&]+)/);
+            if (idMatch) {
+                return `https://drive.google.com/file/d/${idMatch[1]}/preview`;
+            }
+        }
+        // Google Forms
+        if (lowerUrl.includes('docs.google.com/forms/d/')) {
+            return rawUrl.replace(/\/(edit|viewform)(#.*)?(\?.*)?$/, '/viewform?embedded=true');
+        }
+
+        // Office file types
         if (lowerUrl.match(/\.(doc|docx|xls|xlsx|ppt|pptx)/)) {
             return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(rawUrl)}`;
         }
+        // Default: Google Docs Viewer for other URLs
         return `https://docs.google.com/viewer?url=${encodeURIComponent(rawUrl)}&embedded=true`;
     };
 
@@ -159,7 +237,7 @@ function DocumentViewerContent() {
     const isZoomActive = isZoomEnabled || isSpacePressed;
 
     return (
-        <main className={`flex-1 flex flex-col ${isFullscreen ? 'fixed inset-0 z-[200] bg-white dark:bg-black' : ''}`}>
+        <main className={`flex-1 flex flex-col pb-16 md:pb-0 ${isFullscreen ? 'fixed inset-0 z-[200] bg-white dark:bg-black pb-0' : ''}`}>
             {/* Toolbar */}
             <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-black border-b-2 border-black dark:border-zinc-800 shrink-0">
                 <div className="flex items-center gap-3 min-w-0">
@@ -178,6 +256,15 @@ function DocumentViewerContent() {
                             {fileType === 'other' && '📁 File'}
                         </p>
                     </div>
+                    {description && (
+                        <button
+                            onClick={() => setShowDesc(prev => !prev)}
+                            className={`p-1.5 ml-1 border-2 transition-all shrink-0 ${showDesc ? 'bg-purple-600 text-white border-purple-700' : 'bg-gray-100 dark:bg-zinc-800 border-black/20 dark:border-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-700'}`}
+                            title="Show Description"
+                        >
+                            <Info className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -203,10 +290,16 @@ function DocumentViewerContent() {
 
                     {/* Download */}
                     <button
-                        onClick={() => handleDownload()}
+                        onClick={() => {
+                            if (isDriveMode) {
+                                window.open(getDriveDownloadUrl(activeUrl), '_blank');
+                            } else {
+                                handleDownload();
+                            }
+                        }}
                         disabled={isDownloading}
                         className="p-2 bg-purple-600 text-white border-2 border-black dark:border-white hover:bg-purple-700 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50"
-                        title={urlsToRender.length > 1 ? "Download All" : "Download"}
+                        title={isDriveMode ? `Download Link ${activeLinkIndex + 1}` : urlsToRender.length > 1 ? "Download All" : "Download"}
                     >
                         {isDownloading ? (
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -215,23 +308,73 @@ function DocumentViewerContent() {
                         )}
                     </button>
 
-                    {/* Open External */}
+                    {/* Open in Drive / New Tab */}
                     <a
-                        href={url}
+                        href={isDriveMode ? getDriveViewUrl(activeUrl) : url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-2 bg-gray-100 dark:bg-zinc-800 border-2 border-black dark:border-zinc-600 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-all"
-                        title="Open in New Tab"
+                        title={isDriveMode ? 'Open in Google Drive' : 'Open in New Tab'}
                     >
                         <ExternalLink className="w-4 h-4" />
                     </a>
                 </div>
             </div>
 
+            {/* Expandable Description */}
+            {description && (
+                <div
+                    className="overflow-hidden transition-all duration-300 ease-in-out border-b-2 border-black dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900/80 shrink-0"
+                    style={{ maxHeight: showDesc ? `${descHeight + 32}px` : '0px', opacity: showDesc ? 1 : 0 }}
+                >
+                    <div ref={descRef} className="px-4 py-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wider opacity-40 mb-1">Description</p>
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{description}</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Drive Link Pagination Bar */}
+            {isDriveMode && urlsToRender.length > 1 && (
+                <div className="flex items-center justify-between px-4 py-2 bg-purple-50 dark:bg-purple-950/30 border-b-2 border-black dark:border-zinc-800 shrink-0">
+                    <button
+                        onClick={() => setActiveLinkIndex(prev => Math.max(0, prev - 1))}
+                        disabled={activeLinkIndex === 0}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold uppercase border-2 border-black dark:border-zinc-600 bg-white dark:bg-black hover:bg-gray-100 dark:hover:bg-zinc-900 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)]"
+                    >
+                        <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                    </button>
+                    <span className="text-xs font-black uppercase tracking-widest text-purple-700 dark:text-purple-300">
+                        Link {activeLinkIndex + 1} / {urlsToRender.length}
+                    </span>
+                    <button
+                        onClick={() => setActiveLinkIndex(prev => Math.min(urlsToRender.length - 1, prev + 1))}
+                        disabled={activeLinkIndex === urlsToRender.length - 1}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold uppercase border-2 border-black dark:border-zinc-600 bg-white dark:bg-black hover:bg-gray-100 dark:hover:bg-zinc-900 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)]"
+                    >
+                        Next <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            )}
+
             {/* Document Content */}
             <div className={`flex-1 overflow-hidden relative ${isZoomActive ? 'cursor-grab active:cursor-grabbing' : ''} bg-gray-200 dark:bg-zinc-950`}>
 
-                {fileType === 'pdf' && (
+                {/* Drive mode: show one link at a time via iframe */}
+                {isDriveMode && urlsToRender.length > 1 && (
+                    <div className="w-full h-full relative">
+                        <iframe
+                            key={activeLinkIndex}
+                            src={getViewerUrl(urlsToRender[activeLinkIndex])}
+                            className="absolute inset-0 w-full h-full border-none bg-white"
+                            title={`${title} - Link ${activeLinkIndex + 1}`}
+                            allowFullScreen
+                        />
+                    </div>
+                )}
+
+                {/* Normal PDF mode (non-drive) */}
+                {fileType === 'pdf' && !(isDriveMode && urlsToRender.length > 1) && (
                     <div ref={pdfScrollRef} className="w-full h-full relative overflow-y-auto custom-scrollbar">
                         {urlsToRender.length === 1 ? (
                             <iframe

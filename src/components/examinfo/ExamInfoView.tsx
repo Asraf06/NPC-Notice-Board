@@ -191,7 +191,7 @@ export default function ExamInfoView() {
                             : 'bg-white dark:bg-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,0.2)] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                             }`}
                     >
-                        <CalendarClock className="w-4 h-4" /> Mid Routine
+                        <CalendarClock className="w-4 h-4" /> Routine
                     </button>
                     <button
                         onClick={() => setActiveTab('syllabus')}
@@ -308,24 +308,61 @@ function ViewRoutine({ entries }: { entries: ExamEntry[] }) {
     );
 }
 
+function SyllabusCard({ entry }: { entry: SyllabusEntry }) {
+    const [expanded, setExpanded] = useState(false);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const [contentHeight, setContentHeight] = useState(0);
+
+    useEffect(() => {
+        if (contentRef.current) {
+            setContentHeight(contentRef.current.scrollHeight);
+        }
+    }, [entry.topics]);
+
+    return (
+        <div className="border-2 border-black dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] transition-shadow">
+            <div className="flex items-start gap-3">
+                <div className="bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 p-1.5 shrink-0">
+                    <BookOpen className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <h4 className="font-black text-base uppercase tracking-tight">{entry.subject}</h4>
+                    {entry.chapters && <p className="text-[10px] font-mono opacity-50 uppercase mt-0.5">Chapters: {entry.chapters}</p>}
+                </div>
+            </div>
+
+            {/* Expandable Suggestion Section */}
+            {entry.topics && (
+                <div className="pl-10 mt-3">
+                    <button
+                        type="button"
+                        onClick={() => setExpanded(prev => !prev)}
+                        className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition-colors py-1 group"
+                    >
+                        <ChevronDown
+                            className={`w-4 h-4 transition-transform duration-300 ease-in-out ${expanded ? 'rotate-180' : 'rotate-0'}`}
+                        />
+                        Suggestion
+                    </button>
+                    <div
+                        style={{ maxHeight: expanded ? `${contentHeight}px` : '0px' }}
+                        className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
+                    >
+                        <div ref={contentRef} className="pt-2 pb-1">
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap opacity-80">{entry.topics}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ViewSyllabus({ entries }: { entries: SyllabusEntry[] }) {
     return (
         <div className="space-y-4">
             {entries.map((entry, i) => (
-                <div key={i} className="border-2 border-black dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] transition-shadow">
-                    <div className="flex items-start gap-3 mb-3">
-                        <div className="bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 p-1.5 shrink-0">
-                            <BookOpen className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                        </div>
-                        <div>
-                            <h4 className="font-black text-base uppercase tracking-tight">{entry.subject}</h4>
-                            {entry.chapters && <p className="text-[10px] font-mono opacity-50 uppercase mt-0.5">Chapters: {entry.chapters}</p>}
-                        </div>
-                    </div>
-                    <div className="pl-10">
-                        <p className="text-sm leading-relaxed whitespace-pre-wrap opacity-80">{entry.topics}</p>
-                    </div>
-                </div>
+                <SyllabusCard key={i} entry={entry} />
             ))}
         </div>
     );
@@ -507,7 +544,7 @@ function EditRoutineSection({ entries, onAdd, onRemove, onUpdate, subjects }: {
     return (
         <div className="space-y-4">
             <h3 className="font-black uppercase text-sm tracking-wider flex items-center gap-2">
-                <CalendarClock className="w-4 h-4" /> Edit Mid Exam Routine
+                <CalendarClock className="w-4 h-4" /> Edit Exam Routine
             </h3>
             {entries.map((entry, i) => (
                 <div key={i} className="border-2 border-black dark:border-zinc-800 bg-gray-50 dark:bg-zinc-900 overflow-hidden">
